@@ -4,7 +4,7 @@ import streamlit as st
 api_key = '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' # 
 client = OpenAI(api_key=api_key)
 
-st.title("Бот для спілкування (Ріпка Вікторія ТВ-13)")
+st.title("Бот для спілкування")
 
 if "openai_model" not in st.session_state:
   st.session_state["openai_model"] = "gpt-3.5-turbo"
