@@ -1,16 +1,38 @@
 from openai import OpenAI
+import streamlit as st 
 
-api_key = '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'
+api_key = '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' # 
 client = OpenAI(api_key=api_key)
 
-response = client.chat.completions.create(
-  model="gpt-3.5-turbo",
-  messages=[
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Who won the world series in 2020?"},
-    {"role": "assistant", "content": "The Los Angeles Dodgers won the World Series in 2020."},
-    {"role": "user", "content": "Where was it played?"}
-  ]
-)
+st.title("Бот для спілкування (Ріпка Вікторія ТВ-13)")
 
-# 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
+if "openai_model" not in st.session_state:
+  st.session_state["openai_model"] = "gpt-3.5-turbo"
+
+if "messages" not in st.session_state:
+  st.session_state["messages"] = []
+
+for message in st.session_state.messages:
+  with st.chat_message(message["role"]):
+     st.markdown(message["content"])
+
+
+if prompt := st.chat_input("Введіть питання"):
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    response = client.chat.completions.create(
+        model='gpt-3.5-turbo',
+        messages=[
+            {'role': 'user', 'content': prompt}
+        ],
+        temperature=0,
+    )
+
+    answer = response.choices[0].message.content
+
+    with st.chat_message("assistant"):
+        st.markdown(answer)
+    st.session_state.messages.append({"role": "assistant", "content": answer})
+  
