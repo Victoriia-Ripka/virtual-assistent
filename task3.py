@@ -13,11 +13,11 @@ class Echo_bot:
         self.voices = self.speaker.getProperty('voices')
         # 3 and 4 are ukrainian voices
         self.selected_voice_index = 4
-        self.command_input = None
-
+        self.set_voice(self.selected_voice_index)
+        
 
     def goodbuy(self, text):
-        valid_farewell_phrases = ['до побачення', 'до зустрічі', 'на все добре']
+        valid_farewell_phrases = ['стоп', 'до зустрічі', 'на все добре']
 
         if text.lower() in valid_farewell_phrases:
             return 'Повертайся ще!'
@@ -51,15 +51,15 @@ class Echo_bot:
 
 
     def set_voice(self, voice_index):
-        if 0 <= voice_index < len(self.voices):
-            self.speaker.setProperty('voice', self.voices[voice_index].id)
+        if 0 <= int(voice_index) < len(self.voices):
+            self.speaker.setProperty('voice', self.voices[int(voice_index)].id)
         else:
             self.write("Невiрний iндекс голосу")
 
     
-    # def say(self, text):
-    #     self.speaker.say(text)
-    #     self.speaker.runAndWait()
+    def say(self, text):
+        self.speaker.say(text)
+        self.speaker.runAndWait()
 
     
     def write(self, text):
@@ -142,17 +142,17 @@ class Echo_bot:
         #     self.say("Команда зміни голосу не виконана.")
 
 
-    # def do_speaking_chat(self):
-    #     self.say("Скажiть щось або 'До побачення', щоб завершити.")
-        # self.choose_command(user_input)
-        # answer = self.goodbuy(user_input)
-        # self.say(answer)
-        # if answer == 'Повертайся ще!':
-        #     sys.exit()
+    def do_speaking_chat(self):
+        self.say("Скажiть щось або 'стоп', щоб завершити.")
+        self.choose_command(user_input)
+        answer = self.goodbuy(user_input)
+        self.say(answer)
+        if answer == 'Повертайся ще!':
+            sys.exit()
             
 
     def do_writing_chat(self):
-        if user_input := st.chat_input("Введіть фразу або 'До побачення', щоб завершити:"):
+        if user_input := st.chat_input("Введіть фразу або 'стоп', щоб завершити:"):
             st.chat_message("user").markdown(user_input)
             st.session_state.messages.append({"role": "user", "content": user_input})
 
@@ -168,50 +168,49 @@ class Echo_bot:
             else:
                 self.write(answer)
 
-
-    def onStart(self, name):
-        st.write('starting', name) 
-
             
     def run(self):
         st.title('Echo Bot')
         st.write('Привiт! Бот розробила студентка групи ТВ-13 Ріпка Вікторія')
 
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
+        # available_voices = [voice.name for voice in self.voices]
+        # voice_index = st.sidebar.selectbox("Обери голос", available_voices, index=available_voices.id)
+        # self.set_voice(voice_index)
 
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        # if "messages" not in st.session_state:
+        #     st.session_state.messages = []
 
-        chat_type = st.radio("Оберіть формат спілкування:", ['Усний', 'Текстовий'])
+        # for message in st.session_state.messages:
+        #     with st.chat_message(message["role"]):
+        #         st.markdown(message["content"])
 
-        if chat_type == 'Текстовий':
-            self.do_writing_chat()
-        else:
-            st.session_state.messages.append({"role": "user", "content": "Скажiть щось або 'До побачення', щоб завершити."})
-            self.speaker.say("Скажiть щось або 'До побачення', щоб завершити.")
+        # chat_type = st.radio("Оберіть формат спілкування:", ['Усний', 'Текстовий'])
 
-            with self.microphone as source:
-                with st.chat_message("assistant"):
-                    st.markdown("Скажiть реплiку:")
-                st.session_state.messages.append({"role": "assistant", "content": "Скажiть реплiку:"}) 
-                self.speaker.say("Скажiть реплiку:")
+        # if chat_type == 'Текстовий':
+        #     self.do_writing_chat()
+        # else:
+        #     st.session_state.messages.append({"role": "user", "content": "Скажiть щось або 'стоп', щоб завершити."})
+        #     self.speaker.say("Скажiть щось або 'стоп', щоб завершити.")
 
-                audio = self.recognizer.listen(source)
-                try:
-                    user_input = self.recognizer.recognize_google(audio, language="uk-UA")
-                    st.write("Recognized:", user_input)
-                    self.speaker.say(user_input)
-                    # self.speaker.runAndWait()
+        #     with self.microphone as source:
+        #         with st.chat_message("assistant"):
+        #             st.markdown("Скажiть реплiку:")
+        #         st.session_state.messages.append({"role": "assistant", "content": "Скажiть реплiку:"}) 
+        #         self.speaker.say("Скажiть реплiку:")
+
+        #         audio = self.recognizer.listen(source)
+        #         try:
+        #             user_input = self.recognizer.recognize_google(audio, language="uk-UA")
+        #             st.write("Recognized:", user_input)
+        #             self.speaker.say(user_input)
+        #             # self.speaker.runAndWait()
                 
-                except sr.UnknownValueError:
-                    st.write("Не розпiзнано")
-                    self.speaker.say("Не розпiзнано")
-                    # self.speaker.runAndWait()
+        #         except sr.UnknownValueError:
+        #             st.write("Не розпiзнано")
+        #             self.speaker.say("Не розпiзнано")
+        #             # self.speaker.runAndWait()
 
 
 bot = Echo_bot()
-bot.set_voice(bot.selected_voice_index)
 bot.run()
     
