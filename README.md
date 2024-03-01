@@ -6,3 +6,4 @@
 ##to run task3.py and task4.py
 > .venv\Scripts\activate.bat
 > streamlit run task3.py
+> streamlit run task4-ai.py

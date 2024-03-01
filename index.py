@@ -2,8 +2,8 @@ import pyttsx3
 import speech_recognition as sr
 
 class Echo_bot:
-    input_type = '1' # текстовий (усний)
-    chat_type = '3'  # змішаний (усний, письмовий)
+    input_type = '2' # текстовий - 1 (усний - 2)
+    chat_type = '3'  # змішаний (усний - 2, письмовий - 1)
 
     def __init__(self):
         self.speaker = pyttsx3.init()
@@ -25,7 +25,6 @@ class Echo_bot:
     
     
     def say(self, text):
-        self.speaker.say('Ехо-бот говорить!')
         self.speaker.say(text)
         self.speaker.runAndWait()
 
@@ -53,6 +52,8 @@ class Echo_bot:
                 audio = self.recognizer.listen(source)
                 try:
                     user_input = self.recognizer.recognize_google(audio, language="uk-UA")
+                    if user_input == None or user_input == '':
+                        return "Не розпiзнано"
                     return user_input
                 except sr.UnknownValueError:
                     self.bot_answer("Не розпiзнано")
@@ -75,56 +76,59 @@ class Echo_bot:
             self.speaker.setProperty('voice', self.voices[voice_index].id)
             return 1
         else:
-            print("Невiрний iндекс голосу")
+            self.bot_answer("Невiрний iндекс голосу")
             return 0
 
 
-    def choose_command(self, input):
-        if input == 'виконати команду':
-            if self.chat_type == '1':
-                self.write("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
-                command = self.listen_for_input()
-            elif self.chat_type == '2':
-                self.write("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
-                command = self.listen_for_input()
-            else:
-                self.say("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
-                self.write("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
-                command = self.listen_for_input()
+    def choose_command(self):
+        if self.chat_type == '1':
+            self.write("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
+            command = self.listen_for_input()
+        elif self.chat_type == '2':
+            self.say("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
+            command = self.listen_for_input()
+        else:
+            self.write("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
+            self.say("Оберіть яку команду виконати? Змінити формат, ввід, швидкість, голос або гучність?")
+            command = self.listen_for_input()
 
-            match command:
-                case 'формат':
-                    self.change_chat_format()
-                case 'ввід':
+        match command:
+            case 'формат':
+                self.change_chat_format()
+            case 'ввід':
                     # не розпізнає слово "ввід"
-                    self.change_input_format()
-                case 'швидкість':
-                    self.change_tempo()
-                case 'голос':
-                    self.change_voice()
-                case 'гучність':
-                    self.change_loudness()
-                case _:
-                    self.bot_answer("Команда обрана не була.")
+                self.change_input_format()
+            case 'швидкість':
+                self.change_tempo()
+            case 'голос':
+                self.change_voice()
+            case 'гучність':
+                self.change_loudness()
+            case _:
+                self.bot_answer("Команда обрана не була.")
     
 
     def change_tempo(self):
         self.bot_answer("Назвіть значення, на яке змінити швидкість голосу")
         value = self.listen_for_input()
-        self.speaker.setProperty('rate', value)
+        self.speaker.setProperty('rate', int(value))
         self.bot_answer("Команда зміни швидкості виконана.")
 
 
     def change_loudness(self):
         self.bot_answer("Назвіть значення, на яке змінити гучність голосу")
         value = self.listen_for_input()
-        self.speaker.setProperty('volume', value)
+        self.speaker.setProperty('volume', float(value))
         self.bot_answer("Команда зміни гучності виконана.")
     
 
     def change_voice(self):
         self.bot_answer("Назвіть індекс, на який змінити голос")
         value = self.listen_for_input()
+        if value == 'три':
+            value = 3
+        elif value == 'чотири':
+            value = 4
         isVoiceChanged = self.set_voice(int(value))
         if isVoiceChanged:
             self.bot_answer("Команда зміни голосу виконана.")
@@ -146,24 +150,27 @@ class Echo_bot:
             self.write("Оберіть формат: текстовий, усний, змішаний")
             type = self.listen_for_input()
         elif self.chat_type == '2':
-            self.write("Оберіть формат: текстовий, усний, змішаний")
+            self.say("Оберіть формат: текстовий, усний, змішаний")
             type = self.listen_for_input()
         else:
-            self.say("Оберіть формат: текстовий, усний, змішаний")
             self.write("Оберіть формат: текстовий, усний, змішаний")
+            self.say("Оберіть формат: текстовий, усний, змішаний")
             type = self.listen_for_input()
 
         match type:
             case 'текстовий':
                 self.bot_answer("Формат змінений на письмовий.")
+                self.chat_type = '1'
                 self.do_writting_chat()
                 
             case 'усний':
                 self.bot_answer("Формат змінений на усний.")
+                self.chat_type = '2'
                 self.do_speaking_chat()
                 
             case 'змішаний':
                 self.bot_answer("Формат змінений на змішаний.")
+                self.chat_type = '3'
                 self.do_mixed_chat()
                 
 
@@ -176,12 +183,13 @@ class Echo_bot:
 
             user_input = self.listen_for_input()
 
-            answer = self.goodbuy(user_input)
-            self.bot_answer(answer)
-            self.choose_command(user_input)
-            
-            if answer == 'Повертайся ще!':
-                break
+            if user_input == 'виконати команду':
+                self.choose_command()
+            else:
+                answer = self.goodbuy(user_input)
+                self.bot_answer(answer)
+                if answer == 'Повертайся ще!':
+                    break
 
 
     def do_mixed_chat(self):
@@ -194,13 +202,14 @@ class Echo_bot:
                 self.say("Скажiть щось або 'стоп', щоб завершити.")
 
             user_input = self.listen_for_input()
-            
-            answer = self.goodbuy(user_input)
-            self.bot_answer(answer)
-            self.choose_command(user_input)
-            
-            if answer == 'Повертайся ще!':
-                break
+
+            if user_input == 'виконати команду':
+                self.choose_command()
+            else:
+                answer = self.goodbuy(user_input)
+                self.bot_answer(answer)
+                if answer == 'Повертайся ще!':
+                    break
 
             
     def do_writting_chat(self):
@@ -212,12 +221,13 @@ class Echo_bot:
 
             user_input = self.listen_for_input()
 
-            answer = self.goodbuy(user_input)
-            self.bot_answer(user_input)
-            self.choose_command(user_input)
-
-            if answer == 'Повертайся ще!':
-                break
+            if user_input == 'виконати команду':
+                self.choose_command()
+            else:
+                answer = self.goodbuy(user_input)
+                self.bot_answer(answer)
+                if answer == 'Повертайся ще!':
+                    break
 
 
     def run(self):
