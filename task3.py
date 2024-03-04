@@ -9,29 +9,13 @@ class Echo_bot:
         self.engine = pyttsx3.init()
         self.recognizer = sr.Recognizer()
         self.microphone = sr.Microphone()
-        # self.set_voice('Anatol')
         
 
     def goodbuy(self, text):
-            # valid_farewell_phrases = ['стоп', 'до зустрічі', 'на все добре']
-
-            # if text.lower() in valid_farewell_phrases:
             if text.lower() == 'стоп':
                 return 'Повертайся ще!'
             else:
                 return text
-
-    # 3 and 4 are ukrainian voices
-    # def set_voice(self, voice_name):
-    #     try:
-    #         voices = self.engine.getProperty('voices')
-
-    #         if voice_name == 'Anatol':
-    #             self.engine.setProperty('voice', voices[3].id)
-    #         else:
-    #             self.engine.setProperty('voice', voices[4].id)  
-    #     except:
-    #         st.write("Невiрний iндекс голосу")
 
 
     def write_request(self, text):
@@ -123,16 +107,15 @@ st.title("Ехо-бот")
 st.write('Привiт! Бот розробила студентка групи ТВ-13 Ріпка Вікторія')
 
 bot_type = st.radio('Оберіть тип спілкування з ботом', ['текст-текст', 'текст-мова', 'мова-текст', 'мова-мова'])
-
 volume = st.sidebar.slider(label="Гучність", value=0.5, min_value=0.0, max_value=1.0)
 speed = st.sidebar.slider(label="Швидкість", value=150, min_value=100, max_value=300)
 selected_voice_name = st.sidebar.radio("Голос", ['Anatol', 'Natalia'])
 
 bot = Echo_bot()
-
 bot.run()
 bot.engine.setProperty('volume', volume)
 bot.engine.setProperty('rate', speed)
+
 voices = bot.engine.getProperty('voices')  
 if selected_voice_name == 'Anatol':
     bot.engine.setProperty('voice', voices[3].id)
@@ -147,36 +130,10 @@ if st.sidebar.button("Застосувати налаштування"):
     bot.engine.setProperty('volume', volume)
     bot.engine.setProperty('rate', speed)
     if selected_voice_name == 'Anatol':
-
         bot.engine.setProperty('voice', voices[3].id)
     else:
-        st.write("Natalia", selected_voice_name, voices[4].id)
+        # st.write("Natalia", selected_voice_name, voices[4].id)
         bot.engine.setProperty('voice', voices[1].id)
-
-    st.write("Current settings:")
-    st.write(f"Volume: {volume}")
-    st.write(f"Speed: {speed}")
-    st.write(f"Selected voice: {selected_voice_name}")
-
-    # voices = bot.engine.getProperty('voices')
-    # st.write("Available voices:")
-    # for idx, voice in enumerate(voices):
-    #     st.write(f"{idx}. {voice.name}")
-
-    # selected_voice_index = None
-    # for idx, voice in enumerate(voices):
-    #     if selected_voice_name.lower() in voice.name.lower():
-    #         selected_voice_index = idx
-    #         break
-
-    # if selected_voice_index is not None:
-    #     bot.engine.setProperty('voice', voices[selected_voice_index].id)
-    #     st.write(f"Voice set to {selected_voice_name}")
-    # else:
-    #     st.write("Selected voice not found")
-
-    # st.write("Settings applied.")
-
 
 if "messages" not in st.session_state:
     st.session_state.messages = []

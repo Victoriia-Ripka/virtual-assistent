@@ -1,7 +1,7 @@
 from openai import OpenAI
 import streamlit as st 
 
-api_key = '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' # 
+api_key = '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' # 
 client = OpenAI(api_key=api_key)
 
 st.title("Бот для спілкування")
