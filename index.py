@@ -2,7 +2,7 @@ import pyttsx3
 import speech_recognition as sr
 
 class Echo_bot:
-    input_type = '2' # текстовий - 1 (усний - 2)
+    input_type = '1' # текстовий - 1 (усний - 2)
     chat_type = '3'  # змішаний (усний - 2, письмовий - 1)
 
     def __init__(self):
