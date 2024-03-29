@@ -6,15 +6,16 @@ import pymorphy2
 load_dotenv()
 mongoDB_connection = os.getenv("MONGODB_CONNECTION")
 
-greeting = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
-goodbuy = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
+greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
+goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
 colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'голубий', 'синій', 'фіолетовий']
-brand = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
+brands = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
 models = ['fiat', 'mazda', 'volvo', 'audi', 'ford']
-available = ['у наявності', 'доступні', 'зайняті']
+available = ['наявний', 'доступний', 'зайнятий', 'наявність', 'доступність']
 no = ['не', 'ні']
-characteristic = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'фірма', 'доступні', 'наявні', 'бренд', 'фірма', 'автомат', 'автоматична', 'мануальна', 'рік', 'ціна', 'вартість']
-verb = ['хотіти', 'замовити', 'орендувати', 'купити', 'поїхати', 'виняйняти', 'потребувати']
+order_object = ['авто', 'автівка', 'машина', 'автомобіль']
+characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', 'мануальний', 'рік', 'ціна', 'вартість']
+verbs = ['хотіти', 'замовити', 'орендувати', 'купити', 'поїхати', 'виняйняти', 'потребувати']
 
 class Assistent:
     def __init__(self):
@@ -26,7 +27,9 @@ class Assistent:
         self.greeting()
         while True:
             user_input = input()
-            words = user_input.split()
+            translation_table = str.maketrans("", "", ",.!?')")
+            cleaned_input = user_input.translate(translation_table)
+            words = cleaned_input.split()
             user_input_lemas = []
             query = []
 
@@ -36,12 +39,21 @@ class Assistent:
                     user_input_lemas.append(inflected_word)
                 except AttributeError:
                     normalized_word = self.normalize_word(word)
-                    if normalized_word in no or word in verb:
+                    if normalized_word in no or normalized_word in verbs or word in goodbyes:
                         user_input_lemas.append(word)
 
             for word in user_input_lemas:
-                if word in colors or word in brand or word in models or word in available or word in characteristic or word in no or word in verb:
+                if word in colors or word in brands or word in models or word in available or word in characteristics or word in no or word in verbs or word in order_object:
                     query.append(word)
+
+            if query:
+                contains_other_words = any(word not in no for word in query)
+                if contains_other_words:
+                    self.analize_query(query)
+                else:
+                    self.analize_input(user_input_lemas)
+            else:
+                self.analize_input(user_input_lemas)
 
 
     def normalize_word(self, word):
@@ -63,6 +75,41 @@ class Assistent:
         print('Привіт, рад вас бачити. Чим вам допомогти?') 
 
 
+    def analize_query(self, query):
+        pass
+
+
+    def analize_input(self, input):
+        responses = []
+        greeting = self.analyze_greeting(input)
+        goodbye = self.analyze_goodbye(input)
+
+        if greeting:
+            responses.append("Вітаю вас знову.")
+        if goodbye:
+            responses.append("Звертайтеся ще.")
+
+
+        if responses:
+            print(" ".join(responses))
+        else:
+            print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди")
+    
+
+    def analyze_greeting(self, words):
+        for word in words:
+            for greeting in greetings:
+                if word in greeting.split():
+                    return True
+        return False
+    
+
+    def analyze_goodbye(self, words):
+        for word in words:
+            for goodbye in goodbyes:
+                if word in goodbye.split():
+                    return True
+        return False
 
 
 class Car:
