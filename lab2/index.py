@@ -2,25 +2,28 @@ import pymongo
 import os
 from dotenv import load_dotenv
 import pymorphy2
+from prettytable import PrettyTable
 
 load_dotenv()
 mongoDB_connection = os.getenv("MONGODB_CONNECTION")
 
 greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
 goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
-colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'голубий', 'синій', 'фіолетовий']
+feedback_options = ['відгук', 'пропозиція', 'побажання', 'скарга']
+colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'голубий', 'синій', 'фіолетовий', 'біле', 'чорне', 'червоне', 'помаранчеве', 'жовте', 'зелене', 'голубе', 'синє', 'фіолетове']
 brands = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
-models = ['fiat', 'mazda', 'volvo', 'audi', 'ford']
+models = ['fiat', 'mazda', 'volvo', 'audi', 'ford', 'фіат', 'мазда', 'вольво', 'ауді', 'форд']
 available = ['наявний', 'доступний', 'зайнятий', 'наявність', 'доступність']
 no = ['не', 'ні']
 order_object = ['авто', 'автівка', 'машина', 'автомобіль']
-characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', 'мануальний', 'рік', 'ціна', 'вартість']
+characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', 'мануальний', 'рік', 'ціна', 'вартість', "діапазон"]
 verbs = ['хотіти', 'замовити', 'орендувати', 'купити', 'поїхати', 'виняйняти', 'потребувати']
 
 class Assistent:
     def __init__(self):
         self.morph = pymorphy2.MorphAnalyzer(lang='uk')
         self.cars, self.managers, self.clients = self.connect_to_DB()
+        self.questions_count = 0
 
 
     def assist(self):
@@ -43,9 +46,12 @@ class Assistent:
                         user_input_lemas.append(word)
 
             for word in user_input_lemas:
-                if word in colors or word in brands or word in models or word in available or word in characteristics or word in no or word in verbs or word in order_object:
+                # word in characteristics 
+                if word in colors or word in brands or word in models or word in available or word in no or word in verbs or word in order_object :
                     query.append(word)
 
+            print("[INFO] ", user_input_lemas)
+            # print("[INFO] ", query)
             if query:
                 contains_other_words = any(word not in no for word in query)
                 if contains_other_words:
@@ -71,29 +77,100 @@ class Assistent:
         return cars, managers, clients
 
 
+    def show_cars(self, cars):
+        table = PrettyTable()
+        table.field_names = ["Brand", "Model", "Year", "Color", "Automatic", "Cost"]
+        for car in cars:
+                table.add_row([car['brand'], car['model'], car['year'], car['color'], car['automat'], car['cost']])
+
+        print("Ми можемо запропонувати вам наступні варіанти:")
+        print(table)
+        print("Якщо вам подобається якась машина, можете її орендувати")
+
+
     def greeting(self):
         print('Привіт, рад вас бачити. Чим вам допомогти?') 
 
 
     def analize_query(self, query):
-        pass
+        self.questions_count += 1
+        mongo_query = {}
+        # наявність + машина
+        # модель конкретна
+        # конкретний колір
+        # colors = self.analyze_available_colors(query)
+        # models = self.analyze_available_models(query)
+        # brands = self.analyze_available_brands(query)
+        # available_cars = self.analyze_available_cars(query)
+        
+        # if colors:
+            
+        # if models:
+            
+        # if brands:
+            
+        # if available_cars:
+            
+        if 'машина' in query:
+            result = self.cars.find(mongo_query)
+            self.show_cars(result)
+        
+        # if 
 
 
     def analize_input(self, input):
+        self.questions_count += 1
         responses = []
         greeting = self.analyze_greeting(input)
         goodbye = self.analyze_goodbye(input)
+        colors = self.analyze_available_colors(input)
+        models = self.analyze_available_models(input)
+        brands = self.analyze_available_brands(input)
+        available_cars = self.analyze_available_cars(input)
+        automat = self.analyze_automatic_cars(input)
+        prices = self.get_prices(input)
+
 
         if greeting:
             responses.append("Вітаю вас знову.")
+        
+        if colors:
+            responses.append("У нас є машини у наступних кольорах: ")
+            for color in colors:
+                responses.append(f"{color}, ")
+        if models:
+            responses.append("У нас є наступні моделі машин: ")
+            for brand, model in models:
+                responses.append(f"{brand.capitalize()} {model}, ")
+        if brands:
+            responses.append("У нас є наступні марки машин: ")
+            for brand in brands:
+                responses.append(f"{brand.capitalize()}, ")
+        if available_cars:
+            responses.append("У нас є у наявності наступні машини: ")
+            for brand, model in available_cars:
+                responses.append(f"{brand.capitalize()} {model}, ")
+        if automat:
+            responses.append("Це те, що вам потрібно: ")
+            for brand, model in automat:
+                responses.append(f"{brand.capitalize()} {model}, ")
+        if prices:
+            responses.append("Ціна вказана у грн/год: ")
+            if isinstance(prices, (int, float)):
+                responses.append(str(prices))
+            else:
+                responses.append(", ".join(map(str, prices)))
+            
         if goodbye:
             responses.append("Звертайтеся ще.")
 
+        if self.questions_count % 3 == 0:
+            responses.append("Може хочете орендувати одну з запропонованих машин?")
 
         if responses:
             print(" ".join(responses))
         else:
-            print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди")
+            print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
     
 
     def analyze_greeting(self, words):
@@ -112,18 +189,80 @@ class Assistent:
         return False
 
 
-class Car:
-    def __init__(self, brand, model, year, automat, color, available, cost):
-        self.brand = brand
-        self.model = model
-        self.year = year
-        self.automat = automat
-        self.color = color
-        self.available = available
-        self.cost = cost
+    def analyze_available_colors(self, words):
+        if "кольори" in words:
+            colors = self.cars.distinct("color")
+            return colors
+        return False
+    
 
-    def __str__(self):
-        return f'{self.brand} {self.model}: {self.year}, {self.color}, {self.cost}'
+    def analyze_available_models(self, words):
+        if "модель" in words or "моделі" in words:
+            car_models_with_brand = self.cars.find({}, {"_id": 0, "brand": 1, "model": 1})
+            models = set((car["brand"], car["model"]) for car in car_models_with_brand)
+            return models
+        return False
+    
+
+    def analyze_available_brands(self, words):
+        if "фірма" in words or 'бренд' in words or 'марка' in words or "фірми" in words or 'бренди' in words or 'марки' in words:
+            brands = self.cars.distinct("brand")
+            return brands
+        return False
+    
+
+    def analyze_available_cars(self, words):
+        if 'доступність' in words or 'наявність' in words or 'доступні' in words or 'наявні' in words:
+            available_cars = self.cars.find({"available": True}, {"_id": 0, "brand": 1, "model": 1})
+            available_cars = set((car["brand"], car["model"]) for car in available_cars)
+            return available_cars 
+        return False
+
+
+    def analyze_automatic_cars(self, words):
+        if 'автомат' in words or 'автоматичний' in words:      
+            automatic_cars = self.cars.find({"automat": True}, {"_id": 0, "brand": 1, "model": 1})
+            automatic_cars = set((car["brand"], car["model"]) for car in automatic_cars)
+            return automatic_cars
+        elif 'мануальний' in words:
+            automatic_cars = self.cars.find({"automat": False}, {"_id": 0, "brand": 1, "model": 1})
+            automatic_cars = set((car["brand"], car["model"]) for car in automatic_cars)
+            return automatic_cars
+        return False
+
+
+    def get_prices(self, words): 
+        if 'ціна' in words or 'діапазон' in words:
+            prices = []
+            for car in self.cars.find({}, {"_id": 0, "cost": 1}):
+                prices.append(car['cost']['day'])
+            if 'мінімальна' in words or 'найнижча' in words or 'нийдешевша' in words:
+                return self.get_minimum_price(prices)
+            elif 'максимальна' in words or 'найвижча' in words or 'найдорожча' in words:
+                return self.get_maximum_price(prices)
+            elif 'середня' in words:
+                return self.get_average_price(prices)
+            elif 'діапазон' in words and 'ціньовий' in words:
+                return self.get_price_range(prices)
+            else:
+                return prices
+        return False
+
+
+    def get_minimum_price(self, prices):
+        return min(prices)
+
+
+    def get_average_price(self, prices):
+        return sum(prices) / len(prices)
+
+
+    def get_maximum_price(self, prices):
+        return max(prices)
+
+
+    def get_price_range(self, prices):
+        return f"від {min(prices)} до {max(prices)}"
 
 
 def main():
