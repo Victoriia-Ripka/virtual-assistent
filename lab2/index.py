@@ -1,3 +1,4 @@
+from datetime import datetime
 import pymongo
 import os
 from dotenv import load_dotenv
@@ -9,7 +10,8 @@ mongoDB_connection = os.getenv("MONGODB_CONNECTION")
 
 greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
 goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
-feedback_options = ['відгук', 'пропозиція', 'побажання', 'скарга']
+feedback_actions = ['переглянути', 'перевірити', 'подивитися']
+feedback_options = ['відгук', 'пропозиція', 'побажання', 'скарга', 'відгуки', 'пропозиції', 'скарги', 'фідбек']
 colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'голубий', 'синій', 'фіолетовий', 'біле', 'чорне', 'червоне', 'помаранчеве', 'жовте', 'зелене', 'голубе', 'синє', 'фіолетове']
 brands = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
 models = ['fiat', 'mazda', 'volvo', 'audi', 'ford', 'фіат', 'мазда', 'вольво', 'ауді', 'форд']
@@ -17,13 +19,14 @@ available = ['наявний', 'доступний', 'зайнятий', 'ная
 no = ['не', 'ні']
 order_object = ['авто', 'автівка', 'машина', 'автомобіль']
 characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', 'мануальний', 'рік', 'ціна', 'вартість', "діапазон"]
-verbs = ['хотіти', 'замовити', 'орендувати', 'купити', 'поїхати', 'виняйняти', 'потребувати']
+verbs = ['хотіти', 'замовити', 'орендувати', 'купити', 'поїхати', 'виняйняти', 'потребувати', ]
 
 class Assistent:
     def __init__(self):
         self.morph = pymorphy2.MorphAnalyzer(lang='uk')
-        self.cars, self.managers, self.clients = self.connect_to_DB()
+        self.cars, self.managers, self.clients, self.feedback = self.connect_to_DB()
         self.questions_count = 0
+        self.isManager = False
 
 
     def assist(self):
@@ -42,7 +45,7 @@ class Assistent:
                     user_input_lemas.append(inflected_word)
                 except AttributeError:
                     normalized_word = self.normalize_word(word)
-                    if normalized_word in no or normalized_word in verbs or word in goodbyes:
+                    if normalized_word in no or normalized_word in verbs or word in goodbyes or word in feedback_actions:
                         user_input_lemas.append(word)
 
             for word in user_input_lemas:
@@ -51,7 +54,7 @@ class Assistent:
                     query.append(word)
 
             print("[INFO] ", user_input_lemas)
-            # print("[INFO] ", query)
+            print("[INFO] ", query)
             if query:
                 contains_other_words = any(word not in no for word in query)
                 if contains_other_words:
@@ -60,6 +63,10 @@ class Assistent:
                     self.analize_input(user_input_lemas)
             else:
                 self.analize_input(user_input_lemas)
+
+
+    def greeting(self):
+        print('Привіт, рад вас бачити. Чим вам допомогти?') 
 
 
     def normalize_word(self, word):
@@ -73,25 +80,71 @@ class Assistent:
         cars = db["cars"]
         managers = db["managers"]
         clients = db['clients']
+        feedback = db['feedback']
 
-        return cars, managers, clients
-
-
-    def show_cars(self, cars):
-        table = PrettyTable()
-        table.field_names = ["Brand", "Model", "Year", "Color", "Automatic", "Cost"]
-        for car in cars:
-                table.add_row([car['brand'], car['model'], car['year'], car['color'], car['automat'], car['cost']])
-
-        print("Ми можемо запропонувати вам наступні варіанти:")
-        print(table)
-        print("Якщо вам подобається якась машина, можете її орендувати")
+        return cars, managers, clients, feedback
 
 
-    def greeting(self):
-        print('Привіт, рад вас бачити. Чим вам допомогти?') 
+    # Feedback part
+    def analize_feedback(self, words):
+        for word in words:
+            if word in feedback_options:
+                for word in feedback_actions:
+                    return self.review_feedback()
+                else:
+                    self.create_feedback()
+                    return True
+        return False
+    
+
+    def create_feedback(self):
+        title = input("Напишіть заголовок вашого зворотнього зв'язку: ")
+        text = input("Напишіть коментар: ")
+        
+        feedback_data = {
+            "title": title,
+            "text": text,
+            "timestamp": datetime.now()  
+        }
+        self.feedback.insert_one(feedback_data)
+        print("Дякуємо за зворотній зв'язок. Ми робимо все можливе, щоб працювати краще і ви нам у цьому допомагаєте!")
 
 
+    # Manager part
+    def is_manager(self, manager_name):
+        manager = self.managers.find_one({"name": manager_name})
+        if manager is not None:
+            self.isManager = True
+            return self.isManager
+        else:
+            return False
+        
+    def review_feedback(self):
+        if not self.isManager:
+            are_you_manager = input("Чи ви менеджер? (так/ні): ")
+            if are_you_manager.lower() == "так":
+                manager_name = input("Як вас звати?: ")
+                if self.is_manager(manager_name):
+                    print("Ось зворотній зв'язок від користувачів:")
+                    for feedback in self.feedback.find():
+                        print(feedback['title'], '\n', feedback['text'], '\n\n')
+                    return True
+                else:
+                    print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
+                    return False
+            else:
+                print("Вибачте, тільки менеджери мають доступ до даної інформації.")
+                return False
+        else:
+            print("Ось зворотній зв'язок від користувачів:")
+            for feedback in self.feedback.find():
+                    print(feedback['title'], '\n', feedback['text'], '\n\n')
+            return True
+            
+        
+
+
+    # Order part for clients
     def analize_query(self, query):
         self.questions_count += 1
         mongo_query = {}
@@ -118,6 +171,18 @@ class Assistent:
         # if 
 
 
+    def show_cars(self, cars):
+        table = PrettyTable()
+        table.field_names = ["Brand", "Model", "Year", "Color", "Automatic", "Cost"]
+        for car in cars:
+                table.add_row([car['brand'], car['model'], car['year'], car['color'], car['automat'], car['cost']])
+
+        print("Ми можемо запропонувати вам наступні варіанти:")
+        print(table)
+        print("Якщо вам подобається якась машина, можете її орендувати")
+
+
+    # FAQ part
     def analize_input(self, input):
         self.questions_count += 1
         responses = []
@@ -129,6 +194,7 @@ class Assistent:
         available_cars = self.analyze_available_cars(input)
         automat = self.analyze_automatic_cars(input)
         prices = self.get_prices(input)
+        feedback = self.analize_feedback(input)
 
 
         if greeting:
@@ -160,6 +226,9 @@ class Assistent:
                 responses.append(str(prices))
             else:
                 responses.append(", ".join(map(str, prices)))
+
+        # if feedback:
+        #         responses.append()
             
         if goodbye:
             responses.append("Звертайтеся ще.")
