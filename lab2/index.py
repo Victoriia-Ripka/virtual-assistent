@@ -53,6 +53,7 @@ order_object = ['авто', 'автівка', 'машина', 'автомобі�
 characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', 'мануальний', 'рік', 'ціна', 'вартість', "діапазон"]
 verbs = ['замовити', 'орендувати', 'поїхати', 'виняйняти', 'потребувати']
 automatic = ['автомат', 'автоматичний', 'мануальний']
+remont = ['ремонт']
 
 no_word = ['не', 'ні', "крім", "окрім"]
 and_word = ['і', 'й', 'та']
@@ -83,7 +84,7 @@ class Assistent:
                     user_input_lemas.append(inflected_word)
                 except AttributeError:
                     normalized_word = self.normalize_word(word)
-                    if normalized_word in no_word or normalized_word in and_word or normalized_word in or_word or normalized_word in verbs or normalized_word in goodbyes or normalized_word in feedback_actions:
+                    if normalized_word in no_word or normalized_word in remont or normalized_word in and_word or normalized_word in or_word or normalized_word in verbs or normalized_word in goodbyes or normalized_word in feedback_actions:
                         user_input_lemas.append(word)
 
             for word in user_input_lemas:
@@ -132,8 +133,8 @@ class Assistent:
                     return self.review_feedback()
                 else:
                     self.create_feedback()
-                    return True
-        return False
+                    # return True
+        # return False
     
 
     def create_feedback(self):
@@ -159,6 +160,12 @@ class Assistent:
             return False
         
 
+    def close_manager_communication(self):
+        answer = input("Чи менеджер закінчив свою роботу? так/ні: ")
+        if answer.lower() == 'так':
+            self.is_manager = False
+
+
     def review_feedback(self):
         if not self.isManager:
             are_you_manager = input("Чи ви менеджер? (так/ні): ")
@@ -168,20 +175,45 @@ class Assistent:
                     print("Ось зворотній зв'язок від користувачів:")
                     for feedback in self.feedback.find():
                         print(feedback['title'], '\n', feedback['text'], '\n\n')
-                    return True
+                    self.close_manager_communication()
+                    # return True
                 else:
                     print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
-                    return False
+                    # return False
             else:
                 print("Вибачте, тільки менеджери мають доступ до даної інформації.")
-                return False
+                # return False
         else:
             print("Ось зворотній зв'язок від користувачів:")
             for feedback in self.feedback.find():
                     print(feedback['title'], '\n', feedback['text'], '\n\n')
-            return True
-            
-        
+            self.close_manager_communication()
+            # return True
+       
+           
+    def check_cars_for_repair(self, words):
+        if "ремонт" in words:
+            if not self.isManager:
+                are_you_manager = input("Чи ви менеджер? (так/ні): ")
+                if are_you_manager.lower() == "так":
+                    manager_name = input("Як вас звати?: ")
+
+                    if self.is_manager(manager_name):
+                        print("Ось список автомобілів, які потребують ремонту:")
+                        repair_cars = self.cars.find({"neededRemont": "true"})
+                        self.show_cars(repair_cars)
+                        self.close_manager_communication()
+
+                    else:
+                        print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
+                else:
+                    print("Вибачте, тільки менеджери мають доступ до даної інформації.")
+
+            else:
+                print("Ось список автомобілів, які потребують ремонту:")
+                repair_cars = self.cars.find({"neededRemont": "True"})
+                self.show_cars(repair_cars)
+                self.close_manager_communication()
 
 
     # Order part for clients
@@ -247,7 +279,10 @@ class Assistent:
 
         print("Ми можемо запропонувати вам наступні варіанти:")
         print(table)
-        print("Якщо вам подобається якась машина, можете її орендувати")
+        if not self.is_manager:
+            print("Якщо вам подобається якась машина, можете її орендувати")
+        else:
+            print("Продовжуйте свою роботу. Чим я ще можу вам допомогти?")
 
 
     def make_order(self):
@@ -289,6 +324,7 @@ class Assistent:
         prices = self.get_prices(input)
         # feedback = 
         self.analize_feedback(input)
+        self.check_cars_for_repair(input)
 
 
         if greeting:
@@ -327,14 +363,16 @@ class Assistent:
         if goodbye:
             responses.append("Звертайтеся ще.")
 
-        if self.questions_count % 3 == 0:
+        if self.questions_count % 3 == 2:
             responses.append("Може хочете орендувати одну з запропонованих машин?")
 
         if responses:
             print(" ".join(responses))
         else:
-            print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
-    
+            if not self.is_manager:
+                print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
+            else:
+                print("Продовжуйте свою роботу. Чим я ще можу вам допомогти?")
 
     def analyze_greeting(self, words):
         for word in words:
@@ -398,7 +436,7 @@ class Assistent:
         if 'ціна' in words or 'діапазон' in words:
             prices = []
             for car in self.cars.find({}, {"_id": 0, "cost": 1}):
-                prices.append(car['cost']['day'])
+                prices.append(car['cost']['hour'])
             if 'мінімальна' in words or 'найнижча' in words or 'нийдешевша' in words:
                 return self.get_minimum_price(prices)
             elif 'максимальна' in words or 'найвижча' in words or 'найдорожча' in words:
