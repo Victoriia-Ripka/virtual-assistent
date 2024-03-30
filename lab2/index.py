@@ -92,8 +92,8 @@ class Assistent:
                 if word in colors or word in brands or word in models or word in available or word in no_word or word in and_word or word in or_word or word in verbs or word in order_object :
                     query.append(word)
 
-            print("[INFO] ", user_input_lemas)
-            print("[INFO] ", query)
+            # print("[INFO] ", user_input_lemas)
+            # print("[INFO] ", query)
             if query:
                 contains_other_words = any(word not in no_word + and_word + or_word + order_object for word in query)
                 if contains_other_words:
