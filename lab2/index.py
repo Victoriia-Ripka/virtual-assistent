@@ -339,6 +339,7 @@ class Assistent:
                     if car:
 
                         self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": False}})
+                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": True}})
                         self.order_query = {}
                         print("Вітаю, ви успішно орендували машину. Чи можу я вам ще чимсь допомогти?")
                     else:
