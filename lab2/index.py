@@ -10,7 +10,7 @@ mongoDB_connection = os.getenv("MONGODB_CONNECTION")
 
 greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
 goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
-feedback_actions = ['переглянути', 'перевірити', 'подивитися']
+feedback_actions = ['переглянути', 'перевірити', 'подивитися', "покажи"]
 feedback_options = ['відгук', 'пропозиція', 'побажання', 'скарга', 'відгуки', 'пропозиції', 'скарги', 'фідбек']
 colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'синій', 'фіолетовий', 'біле', 'чорне', 'червоне', 'помаранчеве', 'жовте', 'зелене', 'голубе', 'синє', 'фіолетове', 'біла', 'чорна', 'червона', 'помаранчева', 'жовта', 'зелена', 'голуба', 'синя', 'фіолетова', ]
 color_translations = {
@@ -50,9 +50,9 @@ brand_translations = {
         }
 available = ['наявний', 'доступний', 'зайнятий', 'наявність', 'доступність']
 order_object = ['авто', 'автівка', 'машина', 'автомобіль']
-characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', 'мануальний', 'рік', 'ціна', 'вартість', "діапазон"]
+characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', "механіка", "механічна", 'рік', 'ціна', 'вартість', "діапазон"]
 verbs = ['замовити', 'орендувати', 'поїхати', 'виняйняти', 'потребувати']
-automatic = ['автомат', 'автоматичний', 'мануальний']
+automatic = ['автомат', 'автоматичний', 'автоматична', 'автоматичне', "механіка", "механічна", "механічний", "механічне"]
 remont = ['ремонт']
 update_database_words = ["оновити", "поремонтувати", "полагодити"]
 
@@ -127,9 +127,10 @@ class Assistent:
     # Feedback part
     def analize_feedback(self, words):
         for word in words:
-            if word in feedback_options:
-                for word in feedback_actions:
-                    return self.review_feedback()
+            if word in feedback_options or word in feedback_actions:
+                if word in feedback_actions:
+                    self.review_feedback()
+                    break
                 else:
                     self.create_feedback()
     
@@ -152,15 +153,13 @@ class Assistent:
         manager = self.managers.find_one({"name": manager_name})
         if manager is not None:
             self.isManager = True
-            return self.isManager
-        else:
-            return False
+        return self.isManager
         
 
     def close_manager_communication(self):
         answer = input("Чи менеджер закінчив свою роботу? так/ні: ")
         if answer.lower() == 'так':
-            self.is_manager = False
+            self.isManager = False
 
 
     def review_feedback(self):
@@ -177,10 +176,10 @@ class Assistent:
                     # return True
                 else:
                     print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
-                    # return False
+                    return False
             else:
                 print("Вибачте, тільки менеджери мають доступ до даної інформації.")
-                # return False
+                return False
         else:
             print("Ось зворотній зв'язок від користувачів:")
             for feedback in self.feedback.find():
@@ -211,7 +210,7 @@ class Assistent:
 
             else:
                 print("Ось список автомобілів, які потребують ремонту:")
-                repair_cars = self.cars.find({"neededRemont": "True"})
+                repair_cars = self.cars.find({"neededRemont": "true"})
                 self.show_cars(repair_cars)
                 self.close_manager_communication()
 
@@ -243,7 +242,7 @@ class Assistent:
                         print("Вибачте, тільки менеджери мають доступ до даної інформації.")
 
                 else:
-                    car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ")
+                    _, car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ").split()
                     car = self.cars.find_one({"model": car_model, "neededRemont": "true"})
                     if car:
                         self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": "false"}})
@@ -282,6 +281,7 @@ class Assistent:
 
         result = self.cars.find(mongo_query)
         if result:
+            print("Ми можемо запропонувати вам наступні варіанти:")
             self.show_cars(result)
 
             if order:
@@ -315,9 +315,8 @@ class Assistent:
         for car in cars:
                 table.add_row([car['brand'], car['model'], car['year'], car['color'], car['automat'], car['cost']])
 
-        print("Ми можемо запропонувати вам наступні варіанти:")
         print(table)
-        if not self.is_manager:
+        if not self.isManager:
             print("Якщо вам подобається якась машина, можете її орендувати")
         else:
             print("Продовжуйте свою роботу. Чим я ще можу вам допомогти?")
@@ -400,12 +399,12 @@ class Assistent:
             responses.append("Звертайтеся ще.")
 
         if self.questions_count % 3 == 2:
-            responses.append("Може хочете орендувати одну з запропонованих машин?")
+            responses.append("Може хочете орендувати одну із наших машин?")
 
         if responses:
             print(" ".join(responses))
         else:
-            if not self.is_manager:
+            if not self.isManager:
                 print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
             else:
                 print("Продовжуйте свою роботу. Чим я ще можу вам допомогти?")
@@ -462,7 +461,7 @@ class Assistent:
             automatic_cars = self.cars.find({"automat": True}, {"_id": 0, "brand": 1, "model": 1})
             automatic_cars = set((car["brand"], car["model"]) for car in automatic_cars)
             return automatic_cars
-        elif 'мануальний' in words:
+        elif "механіка" in words or "механічна" in words:
             automatic_cars = self.cars.find({"automat": False}, {"_id": 0, "brand": 1, "model": 1})
             automatic_cars = set((car["brand"], car["model"]) for car in automatic_cars)
             return automatic_cars
