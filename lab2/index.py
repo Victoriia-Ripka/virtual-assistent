@@ -12,14 +12,51 @@ greetings = ['привіт', 'добрий день', 'добрий ранок',
 goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
 feedback_actions = ['переглянути', 'перевірити', 'подивитися']
 feedback_options = ['відгук', 'пропозиція', 'побажання', 'скарга', 'відгуки', 'пропозиції', 'скарги', 'фідбек']
-colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'голубий', 'синій', 'фіолетовий', 'біле', 'чорне', 'червоне', 'помаранчеве', 'жовте', 'зелене', 'голубе', 'синє', 'фіолетове']
-brands = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
-models = ['fiat', 'mazda', 'volvo', 'audi', 'ford', 'фіат', 'мазда', 'вольво', 'ауді', 'форд']
+colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'синій', 'фіолетовий', 'біле', 'чорне', 'червоне', 'помаранчеве', 'жовте', 'зелене', 'голубе', 'синє', 'фіолетове', 'біла', 'чорна', 'червона', 'помаранчева', 'жовта', 'зелена', 'голуба', 'синя', 'фіолетова', ]
+color_translations = {
+            'білий': 'white',
+            'чорний': 'black',
+            'червоний': 'red',
+            'помаранчевий': 'orange',
+            'жовтий': 'yellow',
+            'зелений': 'green',
+            'синій': 'blue',
+            'фіолетовий': 'purple',
+            'біле': 'white',
+            'чорне': 'black',
+            'червоне': 'red',
+            'помаранчеве': 'orange',
+            'жовте': 'yellow',
+            'зелене': 'green',
+            'синє': 'blue',
+            'фіолетове': 'purple',
+            'біла': 'white',
+            'чорна': 'black',
+            'червона': 'red',
+            'помаранчева': 'orange',
+            'жовта': 'yellow',
+            'зелена': 'green',
+            'синя': 'blue',
+            'фіолетова': 'purple',
+}
+models = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
+brands = ['fiat', 'mazda', 'volvo', 'audi', 'ford', 'фіат', 'мазда', 'вольво', 'ауді', 'форд']
+brand_translations = {
+            'фіат': 'fiat',
+            'мазда': 'mazda',
+            'вольво': 'volvo',
+            'ауді': 'audi',
+            'форд': 'ford'
+        }
 available = ['наявний', 'доступний', 'зайнятий', 'наявність', 'доступність']
-no = ['не', 'ні']
 order_object = ['авто', 'автівка', 'машина', 'автомобіль']
 characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', 'мануальний', 'рік', 'ціна', 'вартість', "діапазон"]
-verbs = ['хотіти', 'замовити', 'орендувати', 'купити', 'поїхати', 'виняйняти', 'потребувати', ]
+verbs = ['замовити', 'орендувати', 'поїхати', 'виняйняти', 'потребувати']
+automatic = ['автомат', 'автоматичний', 'мануальний']
+
+no_word = ['не', 'ні', "крім", "окрім"]
+and_word = ['і', 'й', 'та']
+or_word = ['або']
 
 class Assistent:
     def __init__(self):
@@ -27,6 +64,7 @@ class Assistent:
         self.cars, self.managers, self.clients, self.feedback = self.connect_to_DB()
         self.questions_count = 0
         self.isManager = False
+        self.order_query = {}
 
 
     def assist(self):
@@ -45,18 +83,18 @@ class Assistent:
                     user_input_lemas.append(inflected_word)
                 except AttributeError:
                     normalized_word = self.normalize_word(word)
-                    if normalized_word in no or normalized_word in verbs or word in goodbyes or word in feedback_actions:
+                    if normalized_word in no_word or normalized_word in and_word or normalized_word in or_word or normalized_word in verbs or normalized_word in goodbyes or normalized_word in feedback_actions:
                         user_input_lemas.append(word)
 
             for word in user_input_lemas:
                 # word in characteristics 
-                if word in colors or word in brands or word in models or word in available or word in no or word in verbs or word in order_object :
+                if word in colors or word in brands or word in models or word in available or word in no_word or word in and_word or word in or_word or word in verbs or word in order_object :
                     query.append(word)
 
-            print("[INFO] ", user_input_lemas)
-            print("[INFO] ", query)
+            # print("[INFO] ", user_input_lemas)
+            # print("[INFO] ", query)
             if query:
-                contains_other_words = any(word not in no for word in query)
+                contains_other_words = any(word not in no_word for word in query)
                 if contains_other_words:
                     self.analize_query(query)
                 else:
@@ -87,6 +125,7 @@ class Assistent:
 
     # Feedback part
     def analize_feedback(self, words):
+        self.questions_count -= 1
         for word in words:
             if word in feedback_options:
                 for word in feedback_actions:
@@ -119,6 +158,7 @@ class Assistent:
         else:
             return False
         
+
     def review_feedback(self):
         if not self.isManager:
             are_you_manager = input("Чи ви менеджер? (так/ні): ")
@@ -146,30 +186,58 @@ class Assistent:
 
     # Order part for clients
     def analize_query(self, query):
-        self.questions_count += 1
+        order = False
         mongo_query = {}
-        # наявність + машина
-        # модель конкретна
-        # конкретний колір
-        # colors = self.analyze_available_colors(query)
-        # models = self.analyze_available_models(query)
-        # brands = self.analyze_available_brands(query)
-        # available_cars = self.analyze_available_cars(query)
-        
-        # if colors:
-            
-        # if models:
-            
-        # if brands:
-            
-        # if available_cars:
-            
-        if 'машина' in query:
-            result = self.cars.find(mongo_query)
-            self.show_cars(result)
-        
-        # if 
+        for word in query:
+            if word in colors:
+                color = self.determinate_color(word)
+                mongo_query['color'] = color
+            if word in models:
+                mongo_query['model'] = word
+            if word in brands:
+                brand = self.determinate_brand(word)
+                mongo_query['brand'] = brand
+            if word in automatic:
+                if word == 'автомат' or word == 'автоматичний':
+                    mongo_query['automat'] = True
+                else:
+                    mongo_query['automat'] = False
+            if word in available:
+                if word == 'наявний' or word == 'доступний' or word == 'наявність' or word == 'доступність':
+                    mongo_query['available'] = True
+                else:
+                    mongo_query['available'] = False
+            if word in verbs:
+                order = True
 
+        result = self.cars.find(mongo_query)
+        if result:
+            self.show_cars(result)
+
+            if order:
+                answer = input("Чи ви оформлюєте замовлення? так/ні: ")
+                if answer.lower() == 'так':
+                    self.order_query = mongo_query
+                    self.make_order()
+                else:
+                    print("Можете запитати про інші машини.")
+        else:
+            print("Вибачте, за вашим запитом ми не знайшли відповідних машин. Спробуйте змінити якісь параметри пошуку!")
+
+
+    def determinate_color(self, input):
+        for color in color_translations:
+            if color in input.lower():
+                return color_translations[color]
+        return None
+
+
+    def determinate_brand(self, input):
+        for brand in brand_translations:
+            if brand in input.lower():
+                return brand_translations[brand]
+        return input 
+    
 
     def show_cars(self, cars):
         table = PrettyTable()
@@ -181,6 +249,31 @@ class Assistent:
         print(table)
         print("Якщо вам подобається якась машина, можете її орендувати")
 
+
+    def make_order(self):
+        # ціна
+        # порахувати вартість
+        self.order_query['available'] = True
+        result = self.cars.find(self.order_query)
+        if not result:
+            print("Вибачте, саме ця машина на разі зараз не доступна")
+        else:
+            age = int(input("Напишіть цифрою скільки вам років? "))
+            if age >= 18 and age <= 65:
+                license = input("Чи маєте ви водійське посвідчення? так/ні: ")
+                if license.lower() == 'так':
+                    car = self.cars.find_one(self.order_query)
+                    if car:
+
+                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": False}})
+                        self.order_query = {}
+                        print("Вітаю, ви успішно орендували машину. Чи можу я вам ще чимсь допомогти?")
+                    else:
+                        print("Виникла помилка при оформленні замовлення. Спробуйте ще раз.")
+                else:
+                    print("Вибачте, ми не орендуємо машини особам, що не мають водійського права. ")
+            else:
+                print("Вибачте, ми не орендуємо машини особам молодшим 18 років, або старшим 65. ")
 
     # FAQ part
     def analize_input(self, input):
@@ -194,7 +287,8 @@ class Assistent:
         available_cars = self.analyze_available_cars(input)
         automat = self.analyze_automatic_cars(input)
         prices = self.get_prices(input)
-        feedback = self.analize_feedback(input)
+        # feedback = 
+        self.analize_feedback(input)
 
 
         if greeting:
