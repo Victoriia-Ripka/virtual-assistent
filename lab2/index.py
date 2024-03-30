@@ -199,7 +199,7 @@ class Assistent:
 
                     if self.is_manager(manager_name):
                         print("Ось список автомобілів, які потребують ремонту:")
-                        repair_cars = self.cars.find({"neededRemont": "true"})
+                        repair_cars = self.cars.find({"neededRemont": True})
                         self.show_cars(repair_cars)
                         self.close_manager_communication()
 
@@ -210,7 +210,7 @@ class Assistent:
 
             else:
                 print("Ось список автомобілів, які потребують ремонту:")
-                repair_cars = self.cars.find({"neededRemont": "true"})
+                repair_cars = self.cars.find({"neededRemont": True})
                 self.show_cars(repair_cars)
                 self.close_manager_communication()
 
@@ -227,10 +227,10 @@ class Assistent:
 
                         if self.is_manager(manager_name):
                             _, car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ").split()
-                            car = self.cars.find_one({"model": car_model, "neededRemont": "true"})
+                            car = self.cars.find_one({"model": car_model, "neededRemont": True})
                             if car:
-                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": "false"}})
-                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": "true"}})
+                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": False}})
+                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": True}})
                                 print("Статус ремонту для автомобіля оновлено успішно. Авто знову доступне до аренди")
                             else:
                                 print("Автомобіль з такою моделлю та потребою у ремонті не знайдено.")
@@ -243,10 +243,10 @@ class Assistent:
 
                 else:
                     _, car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ").split()
-                    car = self.cars.find_one({"model": car_model, "neededRemont": "true"})
+                    car = self.cars.find_one({"model": car_model, "neededRemont": True})
                     if car:
-                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": "false"}})
-                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": "true"}})
+                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": False}})
+                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": True}})
                         print("Статус ремонту для автомобіля оновлено успішно. Авто знову доступне до аренди")
                     else:
                         print("Автомобіль з такою моделлю та потребою у ремонті не знайдено.")
@@ -318,8 +318,6 @@ class Assistent:
         print(table)
         if not self.isManager:
             print("Якщо вам подобається якась машина, можете її орендувати")
-        else:
-            print("Продовжуйте свою роботу. Чим я ще можу вам допомогти?")
 
 
     def make_order(self):
@@ -398,16 +396,18 @@ class Assistent:
         if goodbye:
             responses.append("Звертайтеся ще.")
 
-        if self.questions_count % 3 == 2:
-            responses.append("Може хочете орендувати одну із наших машин?")
+        
 
         if responses:
+            if self.questions_count % 3 == 2:
+                responses.append("Може хочете орендувати одну із наших машин?")
+
             print(" ".join(responses))
+            
         else:
             if not self.isManager:
                 print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
-            else:
-                print("Продовжуйте свою роботу. Чим я ще можу вам допомогти?")
+
 
 
     def analyze_greeting(self, words):
