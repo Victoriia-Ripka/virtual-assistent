@@ -54,6 +54,7 @@ characteristics = ['бренд', 'фірма', 'марка', 'модель', 'к
 verbs = ['замовити', 'орендувати', 'поїхати', 'виняйняти', 'потребувати']
 automatic = ['автомат', 'автоматичний', 'мануальний']
 remont = ['ремонт']
+update_database_words = ["оновити", "поремонтувати", "полагодити"]
 
 no_word = ['не', 'ні', "крім", "окрім"]
 and_word = ['і', 'й', 'та']
@@ -84,18 +85,17 @@ class Assistent:
                     user_input_lemas.append(inflected_word)
                 except AttributeError:
                     normalized_word = self.normalize_word(word)
-                    if normalized_word in no_word or normalized_word in remont or normalized_word in and_word or normalized_word in or_word or normalized_word in verbs or normalized_word in goodbyes or normalized_word in feedback_actions:
+                    if normalized_word in no_word or normalized_word in update_database_words or normalized_word in remont or normalized_word in and_word or normalized_word in or_word or normalized_word in verbs or normalized_word in goodbyes or normalized_word in feedback_actions:
                         user_input_lemas.append(word)
 
-            for word in user_input_lemas:
-                # word in characteristics 
+            for word in user_input_lemas: 
                 if word in colors or word in brands or word in models or word in available or word in no_word or word in and_word or word in or_word or word in verbs or word in order_object :
                     query.append(word)
 
-            # print("[INFO] ", user_input_lemas)
-            # print("[INFO] ", query)
+            print("[INFO] ", user_input_lemas)
+            print("[INFO] ", query)
             if query:
-                contains_other_words = any(word not in no_word for word in query)
+                contains_other_words = any(word not in no_word + and_word + or_word + order_object for word in query)
                 if contains_other_words:
                     self.analize_query(query)
                 else:
@@ -126,15 +126,12 @@ class Assistent:
 
     # Feedback part
     def analize_feedback(self, words):
-        self.questions_count -= 1
         for word in words:
             if word in feedback_options:
                 for word in feedback_actions:
                     return self.review_feedback()
                 else:
                     self.create_feedback()
-                    # return True
-        # return False
     
 
     def create_feedback(self):
@@ -167,6 +164,7 @@ class Assistent:
 
 
     def review_feedback(self):
+        self.questions_count -= 1
         if not self.isManager:
             are_you_manager = input("Чи ви менеджер? (так/ні): ")
             if are_you_manager.lower() == "так":
@@ -192,6 +190,8 @@ class Assistent:
        
            
     def check_cars_for_repair(self, words):
+        self.questions_count -= 1
+
         if "ремонт" in words:
             if not self.isManager:
                 are_you_manager = input("Чи ви менеджер? (так/ні): ")
@@ -214,6 +214,44 @@ class Assistent:
                 repair_cars = self.cars.find({"neededRemont": "True"})
                 self.show_cars(repair_cars)
                 self.close_manager_communication()
+
+
+    def update_car(self, words):
+        self.questions_count -= 1
+
+        for word in words:
+            if word in update_database_words:
+                if not self.isManager:
+                    are_you_manager = input("Чи ви менеджер? (так/ні): ")
+                    if are_you_manager.lower() == "так":
+                        manager_name = input("Як вас звати?: ")
+
+                        if self.is_manager(manager_name):
+                            _, car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ").split()
+                            car = self.cars.find_one({"model": car_model, "neededRemont": "true"})
+                            if car:
+                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": "false"}})
+                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": "true"}})
+                                print("Статус ремонту для автомобіля оновлено успішно. Авто знову доступне до аренди")
+                            else:
+                                print("Автомобіль з такою моделлю та потребою у ремонті не знайдено.")
+                            self.close_manager_communication()
+
+                        else:
+                            print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
+                    else:
+                        print("Вибачте, тільки менеджери мають доступ до даної інформації.")
+
+                else:
+                    car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ")
+                    car = self.cars.find_one({"model": car_model, "neededRemont": "true"})
+                    if car:
+                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": "false"}})
+                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": "true"}})
+                        print("Статус ремонту для автомобіля оновлено успішно. Авто знову доступне до аренди")
+                    else:
+                        print("Автомобіль з такою моделлю та потребою у ремонті не знайдено.")
+                    self.close_manager_communication()
 
 
     # Order part for clients
@@ -312,6 +350,10 @@ class Assistent:
 
     # FAQ part
     def analize_input(self, input):
+        self.analize_feedback(input)
+        self.check_cars_for_repair(input)
+        self.update_car(input)
+
         self.questions_count += 1
         responses = []
         greeting = self.analyze_greeting(input)
@@ -322,10 +364,6 @@ class Assistent:
         available_cars = self.analyze_available_cars(input)
         automat = self.analyze_automatic_cars(input)
         prices = self.get_prices(input)
-        # feedback = 
-        self.analize_feedback(input)
-        self.check_cars_for_repair(input)
-
 
         if greeting:
             responses.append("Вітаю вас знову.")
@@ -356,9 +394,6 @@ class Assistent:
                 responses.append(str(prices))
             else:
                 responses.append(", ".join(map(str, prices)))
-
-        # if feedback:
-        #         responses.append()
             
         if goodbye:
             responses.append("Звертайтеся ще.")
@@ -373,6 +408,7 @@ class Assistent:
                 print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
             else:
                 print("Продовжуйте свою роботу. Чим я ще можу вам допомогти?")
+
 
     def analyze_greeting(self, words):
         for word in words:
