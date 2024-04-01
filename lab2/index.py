@@ -259,12 +259,12 @@ class Assistent:
         mongo_query = {}
         for word in query:
             if word in colors:
-                color = self.determinate_color(word)
+                color = self.translate_color(word)
                 mongo_query['color'] = color
             if word in models:
                 mongo_query['model'] = word
             if word in brands:
-                brand = self.determinate_brand(word)
+                brand = self.translate_brand(word)
                 mongo_query['brand'] = brand
             if word in automatic:
                 if word == 'автомат' or word == 'автоматичний':
@@ -295,14 +295,14 @@ class Assistent:
             print("Вибачте, за вашим запитом ми не знайшли відповідних машин. Спробуйте змінити якісь параметри пошуку!")
 
 
-    def determinate_color(self, input):
+    def translate_color(self, input):
         for color in color_translations:
             if color in input.lower():
                 return color_translations[color]
         return None
 
 
-    def determinate_brand(self, input):
+    def translate_brand(self, input):
         for brand in brand_translations:
             if brand in input.lower():
                 return brand_translations[brand]
