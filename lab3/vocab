@@ -1,0 +1,86 @@
+greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
+goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
+feedback_actions = ['переглянути', 'перевірити', 'подивитися', "покажи"]
+feedback_options = ['відгук', 'пропозиція', 'побажання', 'скарга', 'відгуки', 'пропозиції', 'скарги', 'фідбек']
+colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'синій', 'фіолетовий', 'біле', 'чорне', 'червоне', 'помаранчеве', 'жовте', 'зелене', 'голубе', 'синє', 'фіолетове', 'біла', 'чорна', 'червона', 'помаранчева', 'жовта', 'зелена', 'голуба', 'синя', 'фіолетова', ]
+color_translations = {
+            'білий': 'white',
+            'чорний': 'black',
+            'червоний': 'red',
+            'помаранчевий': 'orange',
+            'жовтий': 'yellow',
+            'зелений': 'green',
+            'синій': 'blue',
+            'фіолетовий': 'purple',
+            'біле': 'white',
+            'чорне': 'black',
+            'червоне': 'red',
+            'помаранчеве': 'orange',
+            'жовте': 'yellow',
+            'зелене': 'green',
+            'синє': 'blue',
+            'фіолетове': 'purple',
+            'біла': 'white',
+            'чорна': 'black',
+            'червона': 'red',
+            'помаранчева': 'orange',
+            'жовта': 'yellow',
+            'зелена': 'green',
+            'синя': 'blue',
+            'фіолетова': 'purple',
+}
+models = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
+brands = ['fiat', 'mazda', 'volvo', 'audi', 'ford', 'фіат', 'мазда', 'вольво', 'ауді', 'форд']
+brand_translations = {
+            'фіат': 'fiat',
+            'мазда': 'mazda',
+            'вольво': 'volvo',
+            'ауді': 'audi',
+            'форд': 'ford'
+        }
+available = ['наявний', 'доступний', 'зайнятий', 'наявність', 'доступність']
+order_object = ['авто', 'автівка', 'машина', 'автомобіль']
+characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', "механіка", "механічна", 'рік', 'ціна', 'вартість', "діапазон"]
+verbs = ['замовити', 'орендувати', 'поїхати', 'виняйняти', 'потребувати']
+automatic = ['автомат', 'автоматичний', 'автоматична', 'автоматичне', "механіка", "механічна", "механічний", "механічне"]
+remont = ['ремонт']
+update_database_words = ["оновити", "поремонтувати", "полагодити"]
+
+no_word = ['не', 'ні', "крім", "окрім"]
+and_word = ['і', 'й', 'та']
+or_word = ['або']
+
+# greeting_getter = lambda doc: any(greeting in doc.text for greeting in greetings)
+# Doc.set_extension("has_greeting", getter=greeting_getter)
+# goodbye_getter = lambda doc: any(goodbye in doc.text for goodbye in goodbyes)
+# Doc.set_extension("has_goodbye", getter=goodbye_getter)
+# feedback_action_getter = lambda doc: any(feedback_action in doc.text for feedback_action in feedback_actions)
+# Doc.set_extension("has_feedback_action", getter=feedback_action_getter)
+# feedback_option_getter = lambda doc: any(feedback_option in doc.text for feedback_option in feedback_options)
+# Doc.set_extension("has_feedback_option", getter=feedback_option_getter)
+# color_getter = lambda doc: any(color in doc.text for color in colors)
+# Doc.set_extension("has_color", getter=color_getter)
+# model_getter = lambda doc: any(model in doc.text for model in models)
+# Doc.set_extension("has_model", getter=model_getter)
+# brand_getter = lambda doc: any(brand in doc.text for brand in brands)
+# Doc.set_extension("has_brand", getter=brand_getter)
+# available_word_getter = lambda doc: any(available_word in doc.text for available_word in available)
+# Doc.set_extension("has_available_word", getter=available_word_getter)
+# ord_object_getter = lambda doc: any(ord_object in doc.text for ord_object in order_object)
+# Doc.set_extension("has_order_object", getter=ord_object_getter)
+# verb_getter = lambda doc: any(verb in doc.text for verb in verbs)
+# Doc.set_extension("has_verb", getter=verb_getter)
+# automatic_word_getter = lambda doc: any(automatic_word in doc.text for automatic_word in automatic)
+# Doc.set_extension("has_automatic", getter=automatic_word_getter)
+# remont_word_getter = lambda doc: any(remont_word in doc.text for remont_word in remont)
+# Doc.set_extension("has_remont", getter=remont_word_getter)
+# update_database_word_getter = lambda doc: any(update_database_word in doc.text for update_database_word in update_database_words)
+# Doc.set_extension("has_update_database_word", getter=update_database_word_getter)
+# no_getter = lambda doc: any(no_lex in doc.text for no_lex in no_word)
+# Doc.set_extension("has_no", getter=no_getter)
+# and_getter = lambda doc: any(and_lex in doc.text for and_lex in and_word)
+# Doc.set_extension("has_and", getter=and_getter)
+# or_getter = lambda doc: any(or_lex in doc.text for or_lex in or_word)
+# Doc.set_extension("has_or", getter=or_getter)
+# doc = nlp("Це речення.")
+# print([(w.text, w.pos_) for w in doc])
