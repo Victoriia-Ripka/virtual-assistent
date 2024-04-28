@@ -1,7 +1,10 @@
 import spacy
 from spacy.tokens import Doc, Span
+from spacy_llm.util import assemble
 from spacy.matcher import PhraseMatcher
 from spacy.language import Language
+from spacy.lang.uk.examples import sentences 
+
 from datetime import datetime
 import pymongo
 import os
@@ -9,8 +12,11 @@ from dotenv import load_dotenv
 import pymorphy2
 from prettytable import PrettyTable
 
+
 load_dotenv()
 mongoDB_connection = os.getenv("MONGODB_CONNECTION")
+gpt_key = os.getenv("OPENAI_API_KEY")
+
 
 greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
 goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
@@ -54,7 +60,6 @@ brand_translations = {
         }
 available = ['наявний', 'доступний', 'зайнятий', 'наявність', 'доступність']
 order_object = ['авто', 'автівка', 'машина', 'автомобіль']
-characteristics = ['бренд', 'фірма', 'марка', 'модель', 'колір', 'доступність', 'наявність', 'автомат', 'автоматичний', "механіка", "механічна", 'рік', 'ціна', 'вартість', "діапазон"]
 verbs = ['замовити', 'орендувати', 'поїхати', 'виняйняти', 'потребувати']
 automatic = ['автомат', 'автоматичний', 'автоматична', 'автоматичне', "механіка", "механічна", "механічний", "механічне"]
 remont = ['ремонт']
@@ -64,47 +69,10 @@ and_word = ['і', 'й', 'та']
 or_word = ['або']
 
 
-@Language.factory("custom_pipe")
-class CustomPipe:
-    def __init__(self, nlp, name="custom_pipe"):
-        self.nlp = nlp
-        self.name = name
-        self.matcher = PhraseMatcher(nlp.vocab)
-        self.create_matcher()
-
-
-    def __call__(self, doc):
-        matches = self.matcher(doc)
-        spans = []
-        for match_id, start, end in matches:
-            span = Span(doc, start, end, label=self.nlp.vocab.strings[match_id])
-            spans.append(span)
-        doc.ents += tuple(spans)
-        return doc
-
-
-    def create_matcher(self):
-        self.matcher.add("GREETINGS", None, *[self.nlp(text) for text in greetings])
-        self.matcher.add("GOODBYES", None, *[self.nlp(text) for text in goodbyes])
-        self.matcher.add("FEEDBACK_ACTIONS", None, *[self.nlp(text) for text in feedback_actions])
-        self.matcher.add("FEEDBACK_OPTIONS", None, *[self.nlp(text) for text in feedback_options])
-        self.matcher.add("COLORS", None, *[self.nlp(text) for text in colors])
-        self.matcher.add("MODELS", None, *[self.nlp(text) for text in models])
-        self.matcher.add("BRANDS", None, *[self.nlp(text) for text in brands])
-        self.matcher.add("AVAILABLE", None, *[self.nlp(text) for text in available])
-        self.matcher.add("ORDER_OBJECT", None, *[self.nlp(text) for text in order_object])
-        self.matcher.add("CHARACTERISTICS", None, *[self.nlp(text) for text in characteristics])
-        self.matcher.add("VERBS", None, *[self.nlp(text) for text in verbs])
-        self.matcher.add("AUTOMATIC", None, *[self.nlp(text) for text in automatic])
-        self.matcher.add("REMONT", None, *[self.nlp(text) for text in remont])
-        self.matcher.add("UPDATE_DATABASE", None, *[self.nlp(text) for text in update_database_words])
-
-
 class Assistent:
     def __init__(self):
-        self.nlp = spacy.blank('uk')
-        self.nlp.add_pipe('custom_pipe')
-        self.nlp.initialize()
+        # Завантажити модель мови
+        self.nlp = assemble("config.cfg")
         self.morph = pymorphy2.MorphAnalyzer(lang='uk')
         self.cars, self.managers, self.clients, self.feedback = self.connect_to_DB()
         self.questions_count = 0
@@ -114,37 +82,51 @@ class Assistent:
 
     def assist(self):
         self.greeting()
+
         while True:
-            user_input = input()
-            translation_table = str.maketrans("", "", ",.!?')")
-            cleaned_input = user_input.translate(translation_table)
-            words = cleaned_input.split()
+            user_input = input("Ви: ")
+
+            if user_input in goodbyes:
+                print("Звертайтеся ще.")
+                break
+
+            print(user_input)
+            doc = self.nlp(user_input)
+            print(doc)
+            
+            for token in doc:
+                print(token.text, token.dep_, token.head.text, token.pos_)
+                
             user_input_lemas = []
             query = []
 
-            for word in words:
-                try:
-                    inflected_word = self.morph.parse(word)[0].inflect({'nomn'}).word
-                    user_input_lemas.append(inflected_word)
-                except AttributeError:
-                    normalized_word = self.normalize_word(word)
-                    if normalized_word in no_word or normalized_word in update_database_words or normalized_word in remont or normalized_word in and_word or normalized_word in or_word or normalized_word in verbs or normalized_word in goodbyes or normalized_word in feedback_actions:
-                        user_input_lemas.append(word)
+            # print("\nNamed Entities:")
+            # for ent in doc.ents:
+            #     print(ent.text, ent.label_)
+
+            # for token in doc:
+            #     try:
+            #         inflected_word = self.morph.parse(token.text)[0].inflect({'nomn'}).word
+            #         user_input_lemas.append(inflected_word)
+            #     except AttributeError:
+            #         normalized_word = self.normalize_word(token.text)
+            #         if any(self.nlp(normalized_word).has_annotation(label) for label in ['GREETINGS', 'GOODBYES', 'FEEDBACK_ACTIONS', 'FEEDBACK_OPTIONS', 'COLORS', 'MODELS', 'BRANDS', 'AVAILABLE', 'ORDER_OBJECT', 'CHARACTERISTICS', 'VERBS', 'AUTOMATIC', 'REMONT', 'UPDATE_DATABASE']):
+            #             user_input_lemas.append(token.text)    
 
             for word in user_input_lemas: 
-                if word in colors or word in brands or word in models or word in available or word in no_word or word in and_word or word in or_word or word in verbs or word in order_object :
+                if word in any(colors, brands, models, available, order_object):
                     query.append(word)
 
-            # print("[INFO] ", user_input_lemas)
-            # print("[INFO] ", query)
-            if query:
-                contains_other_words = any(word not in no_word + and_word + or_word + order_object for word in query)
-                if contains_other_words:
-                    self.analize_query(query)
-                else:
-                    self.analize_input(user_input_lemas)
-            else:
-                self.analize_input(user_input_lemas)
+            print("[INFO] ", user_input_lemas)
+            print("[INFO] ", query)
+            # if query:
+            #     contains_other_words = any(word not in no_word + and_word + or_word + order_object for word in query)
+            #     if contains_other_words:
+            #         self.analize_query(query)
+            #     else:
+            #         self.analize_input(user_input_lemas)
+            # else:
+            #     self.analize_input(user_input_lemas)
 
 
     def greeting(self):
@@ -152,8 +134,13 @@ class Assistent:
 
 
     def normalize_word(self, word):
-        parsed_word = self.morph.parse(word)
-        return parsed_word[0].normal_form
+        # parsed_word = self.morph.parse(word)
+        return self.morph.parse(word)[0].normal_form
+
+
+    def ask_gpt(self, prompt):
+        response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=50 )
+        return response.choices[0].text.strip()
 
 
     def connect_to_DB(self):
@@ -323,7 +310,8 @@ class Assistent:
                 order = True
 
         result = self.cars.find(mongo_query)
-        if result:
+        count = self.cars.count_documents(mongo_query)
+        if count > 0:
             print("Ми можемо запропонувати вам наступні варіанти:")
             self.show_cars(result)
 
@@ -334,6 +322,8 @@ class Assistent:
                     self.make_order()
                 else:
                     print("Можете запитати про інші машини.")
+        elif  count == 0:
+            print("На разі ця машина у ремонті")
         else:
             print("Вибачте, за вашим запитом ми не знайшли відповідних машин. Спробуйте змінити якісь параметри пошуку!")
 
@@ -359,8 +349,6 @@ class Assistent:
                 table.add_row([car['brand'], car['model'], car['year'], car['color'], car['automat'], car['cost']])
 
         print(table)
-        if not self.isManager:
-            print("Якщо вам подобається якась машина, можете її орендувати")
 
 
     def make_order(self):
@@ -547,11 +535,7 @@ class Assistent:
 
 def main():
     assistant = Assistent()
-    text = "Привіт! Чи є доступний червоний автомобіль фірми Форд?"
-    doc = assistant.nlp(text)
-    # assistent.assist()
-    for ent in doc.ents:
-        print(ent.text, ent.label_)
+    assistant.assist()
 
 
 main()
