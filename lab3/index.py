@@ -1,16 +1,12 @@
 import spacy
-from spacy.tokens import Doc, Span
-from spacy_llm.util import assemble
-from spacy.matcher import PhraseMatcher
-from spacy.language import Language
-from spacy.lang.uk.examples import sentences 
-
 from datetime import datetime
 import pymongo
 import os
 from dotenv import load_dotenv
-import pymorphy2
 from prettytable import PrettyTable
+import json
+
+from spacy.pipeline import EntityRuler
 
 
 load_dotenv()
@@ -18,66 +14,84 @@ mongoDB_connection = os.getenv("MONGODB_CONNECTION")
 gpt_key = os.getenv("OPENAI_API_KEY")
 
 
-greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
-goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
 feedback_actions = ['переглянути', 'перевірити', 'подивитися', "покажи"]
 feedback_options = ['відгук', 'пропозиція', 'побажання', 'скарга', 'відгуки', 'пропозиції', 'скарги', 'фідбек']
-colors = ['білий', 'чорний', 'червоний', 'помаранчевий', 'жовтий', 'зелений', 'синій', 'фіолетовий', 'біле', 'чорне', 'червоне', 'помаранчеве', 'жовте', 'зелене', 'голубе', 'синє', 'фіолетове', 'біла', 'чорна', 'червона', 'помаранчева', 'жовта', 'зелена', 'голуба', 'синя', 'фіолетова', ]
-color_translations = {
-            'білий': 'white',
-            'чорний': 'black',
-            'червоний': 'red',
-            'помаранчевий': 'orange',
-            'жовтий': 'yellow',
-            'зелений': 'green',
-            'синій': 'blue',
-            'фіолетовий': 'purple',
-            'біле': 'white',
-            'чорне': 'black',
-            'червоне': 'red',
-            'помаранчеве': 'orange',
-            'жовте': 'yellow',
-            'зелене': 'green',
-            'синє': 'blue',
-            'фіолетове': 'purple',
-            'біла': 'white',
-            'чорна': 'black',
-            'червона': 'red',
-            'помаранчева': 'orange',
-            'жовта': 'yellow',
-            'зелена': 'green',
-            'синя': 'blue',
-            'фіолетова': 'purple',
-}
+verbs = ['замовити', 'орендувати', 'поїхати', 'винайняти', 'потребувати']
+update_database_words = ["оновити", "поремонтувати", "полагодити"]
+remont = ['ремонт']
+manager = ['працювати', 'менеджер', 'адміністратор', 'працівник']
+
+
+greetings = ['привіт', 'добрий день', 'добрий ранок', 'добрий вечір', 'добридень']
+goodbyes = ['на все добре', 'допобачення', 'до зустрічі', 'бувай', 'прощавай']
 models = ['cx-30', '6', 'q4', 'v40', 's90', '500', '500x']
-brands = ['fiat', 'mazda', 'volvo', 'audi', 'ford', 'фіат', 'мазда', 'вольво', 'ауді', 'форд']
 brand_translations = {
-            'фіат': 'fiat',
-            'мазда': 'mazda',
-            'вольво': 'volvo',
-            'ауді': 'audi',
-            'форд': 'ford'
-        }
+    'Фіат': 'Fiat',
+    'Мазда': 'Mazda',
+    'Вольво': 'Volvo',
+    'Ауді': 'Audi',
+    'Форд': 'Ford',
+    'Тойота': 'Toyota',
+    'Шкода': 'Skoda',
+    'БМВ': 'BMW',
+    'Рено': 'Renault',
+    'Пежо': 'Peugeot',
+    'Опель': 'Opel',
+    'Нісан': 'Nissan',
+    'Мітсубісі': 'Mitsubishi',
+    'Мерседес Бенц': 'Mercedes Benz',
+    'Мерседес': 'Mercedes',
+    'Лексус': 'Lexus',
+    'Кіа': 'KIA',
+    'Інфініті': 'Infinity',
+    'Хундай': 'Hyundai',
+    'Хонда': 'Honda',
+    'Сітроєн': 'Citroen',
+    'Шевролет': 'Chevrolet',
+    'Альфа ромео': 'Alfa Romeo'
+}
 available = ['наявний', 'доступний', 'зайнятий', 'наявність', 'доступність']
 order_object = ['авто', 'автівка', 'машина', 'автомобіль']
-verbs = ['замовити', 'орендувати', 'поїхати', 'виняйняти', 'потребувати']
 automatic = ['автомат', 'автоматичний', 'автоматична', 'автоматичне', "механіка", "механічна", "механічний", "механічне"]
-remont = ['ремонт']
-update_database_words = ["оновити", "поремонтувати", "полагодити"]
 no_word = ['не', 'ні', "крім", "окрім"]
 and_word = ['і', 'й', 'та']
 or_word = ['або']
 
+# Створення власних іменованих сутностей
+def load_data_from_file(file):
+    with open (file, 'r', encoding="utf-8") as f:
+        data = json.load(f)
+        return data
+
+def create_entities(file, type):
+    data = load_data_from_file(file)
+    patterns = []
+    for item in data:
+        pattern = {
+            'label': type,
+            "pattern": item
+        }
+        patterns.append(pattern)
+    return patterns
+
+@spacy.Language.factory("car_brands_ruler")
+def generate_rules(nlp, name):
+    ruler = EntityRuler(nlp)
+    patterns = create_entities('data/car_brands.json', 'CAR_BRANDS')
+    ruler.add_patterns(patterns)
+    return ruler
+
 
 class Assistent:
     def __init__(self):
-        # Завантажити модель мови
-        self.nlp = assemble("config.cfg")
-        self.morph = pymorphy2.MorphAnalyzer(lang='uk')
+        # self.nlp = assemble("config.cfg")
+        self.nlp = spacy.load("uk_core_news_lg")
+        self.nlp.add_pipe("car_brands_ruler", before='ner')
         self.cars, self.managers, self.clients, self.feedback = self.connect_to_DB()
         self.questions_count = 0
         self.isManager = False
         self.order_query = {}
+        self.cach = []
 
 
     def assist(self):
@@ -88,54 +102,61 @@ class Assistent:
 
             if user_input in goodbyes:
                 print("Звертайтеся ще.")
+                self.cach = []
                 break
 
-            print(user_input)
             doc = self.nlp(user_input)
-            print(doc)
+            self.cach.append(user_input)
+            intents = self.determinate_intent(doc)
+
+            # згідно до наміру - щось робити
+            print(intents)
+
+            if not intents:
+                print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
+                result = self.cars.find({})
+                count = self.cars.count_documents({})
+                if count > 0:
+                    self.show_cars(result)
             
-            for token in doc:
-                print(token.text, token.dep_, token.head.text, token.pos_)
-                
-            user_input_lemas = []
-            query = []
+            for intent in intents:
+                if intent == 'make-order':
+                    self.analize_order()
+                # "update-database" "remont" "feedback" "manager"
 
-            # print("\nNamed Entities:")
-            # for ent in doc.ents:
-            #     print(ent.text, ent.label_)
 
-            # for token in doc:
-            #     try:
-            #         inflected_word = self.morph.parse(token.text)[0].inflect({'nomn'}).word
-            #         user_input_lemas.append(inflected_word)
-            #     except AttributeError:
-            #         normalized_word = self.normalize_word(token.text)
-            #         if any(self.nlp(normalized_word).has_annotation(label) for label in ['GREETINGS', 'GOODBYES', 'FEEDBACK_ACTIONS', 'FEEDBACK_OPTIONS', 'COLORS', 'MODELS', 'BRANDS', 'AVAILABLE', 'ORDER_OBJECT', 'CHARACTERISTICS', 'VERBS', 'AUTOMATIC', 'REMONT', 'UPDATE_DATABASE']):
-            #             user_input_lemas.append(token.text)    
+            # for word in user_input_lemas: 
+            #     if word in any(colors, brands, models, available, order_object):
+            #         query.append(word)
 
-            for word in user_input_lemas: 
-                if word in any(colors, brands, models, available, order_object):
-                    query.append(word)
-
-            print("[INFO] ", user_input_lemas)
-            print("[INFO] ", query)
             # if query:
-            #     contains_other_words = any(word not in no_word + and_word + or_word + order_object for word in query)
-            #     if contains_other_words:
             #         self.analize_query(query)
-            #     else:
-            #         self.analize_input(user_input_lemas)
             # else:
             #     self.analize_input(user_input_lemas)
+            
+
+    # розпізнає намір клієнта / менеджера
+    def determinate_intent(self, text):
+        intents = []
+
+        for token in text:
+            # print(token.lemma_)
+            if token.lemma_ in verbs:
+                intents.append("make-order") 
+            elif token.lemma_ in update_database_words:
+                intents.append("update-database") 
+            elif token.lemma_ in remont:
+                intents.append("remont") 
+            elif token.lemma_ in feedback_options or token.lemma_ in feedback_actions:
+                intents.append("feedback") 
+            elif token.lemma_ in manager:
+                intents.append("manager") 
+        
+        return intents
 
 
     def greeting(self):
         print('Привіт, рад вас бачити. Чим вам допомогти?') 
-
-
-    def normalize_word(self, word):
-        # parsed_word = self.morph.parse(word)
-        return self.morph.parse(word)[0].normal_form
 
 
     def ask_gpt(self, prompt):
@@ -152,7 +173,7 @@ class Assistent:
         feedback = db['feedback']
 
         return cars, managers, clients, feedback
-
+        
 
     # Feedback part
     def analize_feedback(self, words):
@@ -284,30 +305,33 @@ class Assistent:
 
 
     # Order part for clients
-    def analize_query(self, query):
-        order = False
+    def analize_order(self):
+        # print(self.cach)
+        doc = self.nlp(self.cach[-1])
         mongo_query = {}
-        for word in query:
-            if word in colors:
-                color = self.translate_color(word)
-                mongo_query['color'] = color
-            if word in models:
-                mongo_query['model'] = word
-            if word in brands:
-                brand = self.translate_brand(word)
+
+        for token in doc:
+            # print(token.text, token.pos_, token.lemma_, token.ent_type_)
+            if token.ent_type_ == 'CAR_BRANDS':
+                brand = self.translate_brand(token.text)
                 mongo_query['brand'] = brand
-            if word in automatic:
-                if word == 'автомат' or word == 'автоматичний':
+                print(mongo_query['brand'])
+
+            # if token.lemma_ in colors:
+            #     mongo_query['color'] = color
+            if token.lemma_ in models:
+                mongo_query['model'] = token
+            if token.lemma_ in automatic:
+                if token.lemma_ in ['автомат', 'автоматичний']:
                     mongo_query['automat'] = True
                 else:
                     mongo_query['automat'] = False
-            if word in available:
-                if word == 'наявний' or word == 'доступний' or word == 'наявність' or word == 'доступність':
+            if token.lemma_ in available:
+                if token.lemma_ in ['наявний', 'доступний', 'наявність', 'доступність'] :
                     mongo_query['available'] = True
                 else:
                     mongo_query['available'] = False
-            if word in verbs:
-                order = True
+
 
         result = self.cars.find(mongo_query)
         count = self.cars.count_documents(mongo_query)
@@ -315,24 +339,16 @@ class Assistent:
             print("Ми можемо запропонувати вам наступні варіанти:")
             self.show_cars(result)
 
-            if order:
-                answer = input("Чи ви оформлюєте замовлення? так/ні: ")
-                if answer.lower() == 'так':
-                    self.order_query = mongo_query
-                    self.make_order()
-                else:
-                    print("Можете запитати про інші машини.")
+            answer = input("Чи ви оформлюєте замовлення? так/ні: ")
+            if answer.lower() == 'так':
+                self.order_query = mongo_query
+                self.make_order()
+            else:
+                print("Можете запитати про інші машини.")
         elif  count == 0:
-            print("На разі ця машина у ремонті")
+            print("На разі ця машина у ремонті або її немає у наявності")
         else:
             print("Вибачте, за вашим запитом ми не знайшли відповідних машин. Спробуйте змінити якісь параметри пошуку!")
-
-
-    def translate_color(self, input):
-        for color in color_translations:
-            if color in input.lower():
-                return color_translations[color]
-        return None
 
 
     def translate_brand(self, input):
