@@ -284,7 +284,6 @@ class Assistent:
                     for feedback in self.feedback.find():
                         print(feedback['title'], '\n', feedback['text'], '\n\n')
                     self.close_manager_communication()
-                    # return True
                 else:
                     print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
                     return False
@@ -296,7 +295,6 @@ class Assistent:
             for feedback in self.feedback.find():
                     print(feedback['title'], '\n', feedback['text'], '\n\n')
             self.close_manager_communication()
-            # return True
        
            
     def check_cars_for_repair(self, words):
