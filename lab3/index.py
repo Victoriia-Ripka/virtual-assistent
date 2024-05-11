@@ -1,10 +1,10 @@
-import spacy
-from spacy.pipeline import EntityRuler
-import pymongo
-from prettytable import PrettyTable
+import spacy # type: ignore
+from spacy.pipeline import EntityRuler # type: ignore
+import pymongo # type: ignore
+from prettytable import PrettyTable # type: ignore
 import os
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 import json
 
 
@@ -15,9 +15,6 @@ gpt_key = os.getenv("OPENAI_API_KEY")
 
 update_database_words = ["оновити", "поремонтувати", "полагодити"]
 remont = ['ремонт']
-# no_word = ['не', 'ні', "крім", "окрім"]
-# and_word = ['і', 'й', 'та']
-# or_word = ['або']
 brand_translations = {
     'Фіат': 'Fiat',
     'Мазда': 'Mazda',
@@ -160,8 +157,8 @@ class Assistent:
             user_input = input("Ви: ")
             doc = self.nlp(user_input)
 
-            for token in doc:
-                print("[INFO] ", token.text, token.pos_, token.lemma_, token.ent_type_)
+            # for token in doc:
+            #     print("[INFO] ", token.text, token.pos_, token.lemma_, token.ent_type_, token.sent)
 
             # завершення комунікації
             for token in doc:
@@ -174,8 +171,7 @@ class Assistent:
             intents = self.determinate_intent(doc)
 
             # згідно до наміру - щось робити
-            print("[INFO intents] ", intents)
-
+            # print("[INFO intents] ", intents)
             if not intents:
                 print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
                 result = self.cars.find({})
@@ -189,23 +185,19 @@ class Assistent:
                 if intent == 'specific-request':
                     self.analize_specific_request(doc)
                 if intent == 'manager':
-                    self.analize_specific_request(doc)
+                    self.do_manage(doc)
                 if intent == 'feedback':
                     self.analize_feedback(doc)
 
 
     # розпізнає намір клієнта / менеджера
-    def determinate_intent(self, text):
+    def determinate_intent(self, doc):
         intents = []
 
-        for token in text:
+        for token in doc:
             if token.ent_type_ == 'ORDER':
-                # for word in user_input_lemas: 
-                #     if word in any(colors, brands, models, available, order_object):
-                #         query.append(word)
                 intents.append("make-order") 
-            elif token.lemma_ in ['який', 'ціна', 'діапазон'] or token.ent_type_ in ['GREETING', 'BRAND', 'MODEL', 'CHARACTERISTIC', 'CAR']:
-                # COLORS?
+            elif token.lemma_ in ['ціна', 'діапазон', "колір"] or token.ent_type_ in ['GREETING', 'BRAND', 'MODEL', 'CHARACTERISTIC', 'CAR']:
                 intents.append("specific-request") 
             elif token.ent_type_ in ['F_OPT', 'F_ACT']:
                 intents.append("feedback") 
@@ -216,13 +208,14 @@ class Assistent:
 
 
     def greeting(self):
-        print('Привіт, рад вас бачити. Чим вам допомогти?') 
+        print('Привіт, радий Вас бачити. Чим Вам допомогти?') 
 
 
     # не працює на разі
     def ask_gpt(self, prompt):
-        response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=50 )
-        return response.choices[0].text.strip()
+        # response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=50 )
+        # return response.choices[0].text.strip()
+        pass
 
 
     def connect_to_DB(self):
@@ -235,29 +228,6 @@ class Assistent:
 
         return cars, managers, clients, feedback
         
-
-    # Feedback part
-    def analize_feedback(self, doc):
-        for token in doc:
-            if token.ent_type_ == 'F_ACT':
-                self.review_feedback()
-                break
-            elif token.ent_type_ == 'F_OPT':
-                self.create_feedback()
-    
-
-    def create_feedback(self):
-        title = input("Напишіть заголовок вашого зворотнього зв'язку: ")
-        text = input("Напишіть коментар: ")
-        
-        feedback_data = {
-            "title": title,
-            "text": text,
-            "timestamp": datetime.now()  
-        }
-        self.feedback.insert_one(feedback_data)
-        print("Дякуємо за зворотній зв'язок. Ми робимо все можливе, щоб працювати краще і ви нам у цьому допомагаєте!")
-
 
     # Manager part
     def is_manager(self, manager_name):
@@ -295,71 +265,85 @@ class Assistent:
             for feedback in self.feedback.find():
                     print(feedback['title'], '\n', feedback['text'], '\n\n')
             self.close_manager_communication()
-       
-           
-    def check_cars_for_repair(self, words):
-        self.questions_count -= 1
+    
 
-        if "ремонт" in words:
-            if not self.isManager:
-                are_you_manager = input("Чи ви менеджер? (так/ні): ")
-                if are_you_manager.lower() == "так":
-                    manager_name = input("Як вас звати?: ")
+    def do_manage(self, doc):
+        if not self.isManager:
+            are_you_manager = input("Чи ви менеджер? (так/ні): ")
+            if are_you_manager.lower() == "так":
+                manager_name = input("Як вас звати?: ")
+                if self.is_manager(manager_name):
+                    for token in doc:
+                        if token.lemma_ in remont:
+                            return self.check_cars_for_repair()
+                        if token.lemma_ in update_database_words:
+                            return self.update_car()
 
-                    if self.is_manager(manager_name):
-                        print("Ось список автомобілів, які потребують ремонту:")
-                        repair_cars = self.cars.find({"neededRemont": True})
-                        self.show_cars(repair_cars)
-                        self.close_manager_communication()
-
-                    else:
-                        print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
                 else:
-                    print("Вибачте, тільки менеджери мають доступ до даної інформації.")
-
+                    print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
             else:
-                print("Ось список автомобілів, які потребують ремонту:")
-                repair_cars = self.cars.find({"neededRemont": True})
-                self.show_cars(repair_cars)
-                self.close_manager_communication()
+                print("Вибачте, тільки менеджери мають доступ до даної інформації.")
+        
+        else: 
+            for token in doc:
+                if token.lemma_ in remont:
+                    return self.check_cars_for_repair()
+                if token.lemma_ in update_database_words:
+                    return self.update_car()
 
-
-    def update_car(self, words):
+           
+    def check_cars_for_repair(self):
         self.questions_count -= 1
 
-        for word in words:
-            if word in update_database_words:
-                if not self.isManager:
-                    are_you_manager = input("Чи ви менеджер? (так/ні): ")
-                    if are_you_manager.lower() == "так":
-                        manager_name = input("Як вас звати?: ")
+        print("Ось список автомобілів, які потребують ремонту:")
+        repair_cars = self.cars.find({"neededRemont": True})
+        self.show_cars(repair_cars)
 
-                        if self.is_manager(manager_name):
-                            _, car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ").split()
-                            car = self.cars.find_one({"model": car_model, "neededRemont": True})
-                            if car:
-                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": False}})
-                                self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": True}})
-                                print("Статус ремонту для автомобіля оновлено успішно. Авто знову доступне до аренди")
-                            else:
-                                print("Автомобіль з такою моделлю та потребою у ремонті не знайдено.")
-                            self.close_manager_communication()
+        self.close_manager_communication()
+        return True
 
-                        else:
-                            print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
-                    else:
-                        print("Вибачте, тільки менеджери мають доступ до даної інформації.")
 
-                else:
-                    _, car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ").split()
-                    car = self.cars.find_one({"model": car_model, "neededRemont": True})
-                    if car:
-                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": False}})
-                        self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": True}})
-                        print("Статус ремонту для автомобіля оновлено успішно. Авто знову доступне до аренди")
-                    else:
-                        print("Автомобіль з такою моделлю та потребою у ремонті не знайдено.")
-                    self.close_manager_communication()
+    def update_car(self):
+        self.questions_count -= 1
+
+        try:
+            _, car_model = input("Введіть модель автомобіля, який потрібно оновити (наприклад, 'Fiat 500'): ").split()
+            car = self.cars.find_one({"model": car_model, "neededRemont": True})
+
+            if car:
+                self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": False}})
+                self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": True}})
+                print("Статус ремонту для автомобіля оновлено успішно. Авто знову доступне до аренди")
+            else:
+                print("Автомобіль з такою моделлю та потребою у ремонті не знайдено.")
+        except:
+            print("Помилка вводу. Спробуйте ще раз. Введіть бренд і модель машини коректно")
+
+        self.close_manager_communication()
+        return True
+
+
+    # Feedback part
+    def analize_feedback(self, doc):
+        for token in doc:
+            if token.ent_type_ == 'F_ACT':
+                self.review_feedback()
+                break
+            elif token.ent_type_ == 'F_OPT':
+                self.create_feedback()
+    
+
+    def create_feedback(self):
+        title = input("Напишіть заголовок вашого зворотнього зв'язку: ")
+        text = input("Напишіть коментар: ")
+        
+        feedback_data = {
+            "title": title,
+            "text": text,
+            "timestamp": datetime.now()  
+        }
+        self.feedback.insert_one(feedback_data)
+        print("Дякуємо за зворотній зв'язок. Ми робимо все можливе, щоб працювати краще і ви нам у цьому допомагаєте!")
 
 
     # Order part for clients
@@ -368,12 +352,10 @@ class Assistent:
         car_brands = []
 
         for token in doc:
-            # print(token.text, token.pos_, token.lemma_, token.ent_type_)
+            # print("[INFO] ", token.text, token.pos_, token.lemma_, token.ent_type_)
             if token.ent_type_ == 'BRAND':
                 brand = self.translate_brand(token.text)
                 car_brands.append(brand)
-            if token.pos_ == 'ADJ':
-                mongo_query['color'] = token.lemma_
             if token.ent_type == 'MODEL':
                 mongo_query['model'] = token
             if token.ent_type ==  'CHARACTERISTIC':
@@ -385,11 +367,12 @@ class Assistent:
                     mongo_query['available'] = True
                 elif token.lemma_ in ['зайнятий']:
                     mongo_query['available'] = False
+            if token.pos_ == 'ADJ':
+                mongo_query['color'] = token.lemma_
 
         if car_brands:
             mongo_query['brand'] = {"$in": car_brands}
 
-        print(mongo_query)
         result = self.cars.find(mongo_query)
         count = self.cars.count_documents(mongo_query)
         if count > 0:
@@ -409,7 +392,6 @@ class Assistent:
 
 
     def make_order(self):
-
         self.order_query['available'] = True
         result = self.cars.find(self.order_query)
         if not result:
@@ -421,7 +403,6 @@ class Assistent:
                 if license.lower() == 'так':
                     car = self.cars.find_one(self.order_query)
                     if car:
-
                         self.cars.update_one({"_id": car["_id"]}, {"$set": {"available": False}})
                         self.cars.update_one({"_id": car["_id"]}, {"$set": {"neededRemont": True}})
                         self.order_query = {}
