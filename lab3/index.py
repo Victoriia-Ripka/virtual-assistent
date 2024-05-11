@@ -191,11 +191,7 @@ class Assistent:
                 if intent == 'manager':
                     self.analize_specific_request(doc)
                 if intent == 'feedback':
-                    self.analize_specific_request(doc)
-                if intent == 'remont':
-                    self.analize_specific_request(doc)
-                if intent == 'update-database':
-                    self.analize_specific_request(doc)
+                    self.analize_feedback(doc)
 
 
     # розпізнає намір клієнта / менеджера
@@ -203,7 +199,6 @@ class Assistent:
         intents = []
 
         for token in text:
-            # print(token.lemma_)
             if token.ent_type_ == 'ORDER':
                 # for word in user_input_lemas: 
                 #     if word in any(colors, brands, models, available, order_object):
@@ -212,13 +207,9 @@ class Assistent:
             elif token.lemma_ in ['який', 'ціна', 'діапазон'] or token.ent_type_ in ['GREETING', 'BRAND', 'MODEL', 'CHARACTERISTIC', 'CAR']:
                 # COLORS?
                 intents.append("specific-request") 
-            elif token.lemma_ in update_database_words:
-                intents.append("update-database") 
-            elif token.lemma_ in remont:
-                intents.append("remont") 
             elif token.ent_type_ in ['F_OPT', 'F_ACT']:
                 intents.append("feedback") 
-            elif token.ent_type_ == 'MANAGE':
+            elif token.ent_type_ == 'MANAGE' or token.lemma_ in remont or token.lemma_ in update_database_words:
                 intents.append("manager") 
         
         return list(set(intents))
@@ -246,14 +237,13 @@ class Assistent:
         
 
     # Feedback part
-    def analize_feedback(self, words):
-        for word in words:
-            if word in feedback_options or word in feedback_actions:
-                if word in feedback_actions:
-                    self.review_feedback()
-                    break
-                else:
-                    self.create_feedback()
+    def analize_feedback(self, doc):
+        for token in doc:
+            if token.ent_type_ == 'F_ACT':
+                self.review_feedback()
+                break
+            elif token.ent_type_ == 'F_OPT':
+                self.create_feedback()
     
 
     def create_feedback(self):
@@ -420,25 +410,8 @@ class Assistent:
             print("Вибачте, за вашим запитом ми не знайшли відповідних машин. Спробуйте змінити якісь параметри пошуку!")
 
 
-    def translate_brand(self, input):
-        for brand in brand_translations:
-            if brand == input.capitalize():
-                return brand_translations[brand]
-        return input 
-    
-
-    def show_cars(self, cars):
-        table = PrettyTable()
-        table.field_names = ["Brand", "Model", "Year", "Color", "Automatic", "Cost"]
-        for car in cars:
-                table.add_row([car['brand'], car['model'], car['year'], car['color'], car['automat'], car['cost']])
-
-        print(table)
-
-
     def make_order(self):
-        # ціна
-        # порахувати вартість
+
         self.order_query['available'] = True
         result = self.cars.find(self.order_query)
         if not result:
@@ -461,6 +434,23 @@ class Assistent:
                     print("Вибачте, ми не орендуємо машини особам, що не мають водійського права. ")
             else:
                 print("Вибачте, ми не орендуємо машини особам молодшим 18 років, або старшим 65. ")
+
+
+    def translate_brand(self, input):
+        for brand in brand_translations:
+            if brand == input.capitalize():
+                return brand_translations[brand]
+        return input 
+    
+
+    def show_cars(self, cars):
+        table = PrettyTable()
+        table.field_names = ["Brand", "Model", "Year", "Color", "Automatic", "Cost"]
+        for car in cars:
+                table.add_row([car['brand'], car['model'], car['year'], car['color'], car['automat'], car['cost']])
+
+        print(table)
+
 
     # FAQ part
     def analize_specific_request(self, doc):
@@ -539,7 +529,7 @@ class Assistent:
                 responses.append(", ".join(map(str, prices)))
 
         if responses:
-            if self.questions_count % 3 == 2:
+            if self.questions_count % 5 == 0:
                 responses.append("Може хочете орендувати одну із наших машин?")
             print(" ".join(responses))
         else:
