@@ -1,20 +1,15 @@
-import spacy # type: ignore
-from spacy.pipeline import EntityRuler # type: ignore
+from spacy_llm.util import assemble # type: ignore
 import pymongo # type: ignore
 from prettytable import PrettyTable # type: ignore
 import os
+from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv # type: ignore
-import json
-
+import time
 
 load_dotenv()
 mongoDB_connection = os.getenv("MONGODB_CONNECTION")
-gpt_key = os.getenv("OPENAI_API_KEY")
 
-
-update_database_words = ["оновити", "поремонтувати", "полагодити"]
-remont = ['ремонт']
 brand_translations = {
     'Фіат': 'Fiat',
     'Мазда': 'Mazda',
@@ -41,113 +36,19 @@ brand_translations = {
     'Альфа ромео': 'Alfa Romeo'
 }
 
-
-# Створення власних іменованих сутностей
-def load_data_from_file(file):
-    with open (file, 'r', encoding="utf-8") as f:
-        data = json.load(f)
-        return data
-
-def create_entities(file, type):
-    data = load_data_from_file(file)
-    patterns = []
-    for item in data:
-        pattern = {
-            'label': type,
-            "pattern": item
-        }
-        patterns.append(pattern)
-    return patterns
-
-@spacy.Language.factory("car_brands_ruler")
-def generate_rules1(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/car_brands.json', 'BRAND')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("car_ruler")
-def generate_rules2(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/car.json', 'CAR')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("car_models_ruler")
-def generate_rules2(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/car.json', 'MODEL')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("car_characteristics_ruler")
-def generate_rules3(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/characteristics.json', 'CHARACTERISTIC')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("greetings_ruler")
-def generate_rules4(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/greetings.json', 'GREETING')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("goodbyes_ruler")
-def generate_rules4(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/goodbyes.json', 'GOODBYE')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("f_act_ruler")
-def generate_rules2(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/f_act.json', 'F_ACT')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("f_opt_ruler")
-def generate_rules3(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/f_opt.json', 'F_OPT')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("order_ruler")
-def generate_rules4(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/order.json', 'ORDER')
-    ruler.add_patterns(patterns)
-    return ruler
-
-@spacy.Language.factory("manager_ruler")
-def generate_rules4(nlp, name):
-    ruler = EntityRuler(nlp)
-    patterns = create_entities('data/manager.json', 'MANAGE')
-    ruler.add_patterns(patterns)
-    return ruler
-
 class Assistent:
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.cfg")
+    paths = {
+        "components.llm_ner.task.examples.path": str(Path(__file__).parent / "examples_data.yml"),
+    }
+    
     def __init__(self):
-        # self.nlp = assemble("config.cfg")
-        self.nlp = spacy.load("uk_core_news_lg")
-        self.nlp.add_pipe("car_brands_ruler", before='ner')
-        self.nlp.add_pipe("car_models_ruler", before='ner')
-        self.nlp.add_pipe("car_ruler", before='ner')
-        self.nlp.add_pipe("car_characteristics_ruler", before='ner')
-        self.nlp.add_pipe("greetings_ruler", before='ner')
-        self.nlp.add_pipe("goodbyes_ruler", before='ner')
-        self.nlp.add_pipe("f_act_ruler", before='ner')
-        self.nlp.add_pipe("f_opt_ruler", before='ner')
-        self.nlp.add_pipe("order_ruler", before='ner')
-        self.nlp.add_pipe("manager_ruler", before='ner')
+        self.set_key_env_var()
+        self.nlp = assemble(config_path=self.config_path, overrides=self.paths)
         self.cars, self.managers, self.clients, self.feedback = self.connect_to_DB()
         self.questions_count = 0
         self.isManager = False
         self.order_query = {}
-        self.cach = []
 
 
     def assist(self):
@@ -155,39 +56,46 @@ class Assistent:
 
         while True:
             user_input = input("Ви: ")
-            doc = self.nlp(user_input)
+            time.sleep(1)
 
-            # for token in doc:
-            #     print("[INFO] ", token.text, token.pos_, token.lemma_, token.ent_type_, token.sent)
+            try:
+                doc = self.nlp(user_input)
+                
+                print(f"[INFO] Enteties: {[(ent.text, ent.label_, ent.kb_id_) for ent in doc.ents]}")
+                print("[INFO] ", doc.cats)
+                for token in doc:
+                    print("[INFO] ", token.text, token.pos_, token.lemma_, token.ent_type_, token.sent)
 
-            # завершення комунікації
-            for token in doc:
-                if token.ent_type_ == 'GOODBYE':
-                    print("Звертайтеся ще.")
-                    self.cach = []
-                    return 0
+                # завершення комунікації
+                for token in doc:
+                    if token.ent_type_ == 'GOODBYE':
+                        print("Звертайтеся ще.")
+                        self.cach = []
+                        return 0
 
-            self.cach.append(user_input)
-            intents = self.determinate_intent(doc)
+                intents = self.determinate_intent(doc)
 
-            # згідно до наміру - щось робити
-            # print("[INFO intents] ", intents)
-            if not intents:
-                print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
-                result = self.cars.find({})
-                count = self.cars.count_documents({})
-                if count > 0:
-                    self.show_cars(result)
-            
-            for intent in intents:
-                if intent == 'make-order':
-                    self.analize_order(doc)
-                if intent == 'specific-request':
-                    self.analize_specific_request(doc)
-                if intent == 'manager':
-                    self.do_manage(doc)
-                if intent == 'feedback':
-                    self.analize_feedback(doc)
+                # згідно до наміру - щось робити
+                # print("[INFO intents] ", intents)
+                if not intents:
+                    print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
+                    result = self.cars.find({})
+                    count = self.cars.count_documents({})
+                    if count > 0:
+                        self.show_cars(result)
+                
+                for intent in intents:
+                    if intent == 'make-order':
+                        self.analize_order(doc)
+                    if intent == 'specific-request':
+                        self.analize_specific_request(doc)
+                    if intent == 'manager':
+                        self.do_manage(doc)
+                    if intent == 'feedback':
+                        self.analize_feedback(doc)
+            except ConnectionError as e:
+                print(f"Connection error: {e}")
+                time.sleep(10) 
 
 
     # розпізнає намір клієнта / менеджера
@@ -210,6 +118,10 @@ class Assistent:
     def greeting(self):
         print('Привіт, радий Вас бачити. Чим Вам допомогти?') 
 
+
+    def set_key_env_var(self):
+        api_key = os.getenv("OPENAI_API_KEY")
+        os.environ['OPENAI_API_KEY'] = api_key
 
     # не працює на разі
     def ask_gpt(self, prompt):
