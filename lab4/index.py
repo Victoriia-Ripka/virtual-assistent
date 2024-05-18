@@ -95,7 +95,7 @@ class Assistent:
                         self.analize_feedback(doc)
             except ConnectionError as e:
                 print(f"Connection error: {e}")
-                time.sleep(10) 
+                return 0
 
 
     # розпізнає намір клієнта / менеджера
@@ -109,8 +109,8 @@ class Assistent:
                 intents.append("specific-request") 
             elif token.ent_type_ in ['F_OPT', 'F_ACT']:
                 intents.append("feedback") 
-            elif token.ent_type_ == 'MANAGE' or token.lemma_ in remont or token.lemma_ in update_database_words:
-                intents.append("manager") 
+            # elif token.ent_type_ == 'MANAGE' or token.lemma_ in remont or token.lemma_ in update_database_words:
+            #     intents.append("manager") 
         
         return list(set(intents))
 
