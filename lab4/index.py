@@ -39,7 +39,8 @@ brand_translations = {
 class Assistent:
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.cfg")
     paths = {
-        "components.llm_ner.task.examples.path": str(Path(__file__).parent / "examples_data.yml"),
+        "components.llm_ner.task.examples.path": str(Path(__file__).parent / "ner_examples.yml"),
+        "components.llm_textcat.task.examples.path": str(Path(__file__).parent / "textcat_examples.json")
     }
     
     def __init__(self):
@@ -61,11 +62,12 @@ class Assistent:
             try:
                 doc = self.nlp(user_input)
                 
-                print(f"[INFO] Enteties: {[(ent.text, ent.label_, ent.kb_id_) for ent in doc.ents]}")
-                print("[INFO] ", doc.cats)
-                for token in doc:
-                    print("[INFO] ", token.text, token.pos_, token.lemma_, token.ent_type_, token.sent)
+                print(f"[INFO Enteties  ] {[(ent.text, ent.label_, ent.kb_id_) for ent in doc.ents]}")
+                print("[INFO Categories] ", doc.cats)
 
+                for token in doc:
+                    print("[INFO token   ] ", token.text, token.pos_, token.lemma_, token.ent_type_)
+                
                 # завершення комунікації
                 for token in doc:
                     if token.ent_type_ == 'GOODBYE':
@@ -76,7 +78,6 @@ class Assistent:
                 intents = self.determinate_intent(doc)
 
                 # згідно до наміру - щось робити
-                # print("[INFO intents] ", intents)
                 if not intents:
                     print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
                     result = self.cars.find({})
