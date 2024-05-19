@@ -43,6 +43,7 @@ class Assistent:
         "components.llm_textcat.task.examples.path": str(Path(__file__).parent / "textcat_examples.json")
     }
     
+
     def __init__(self):
         self.set_key_env_var()
         self.nlp = assemble(config_path=self.config_path, overrides=self.paths)
@@ -62,28 +63,28 @@ class Assistent:
             try:
                 doc = self.nlp(user_input)
                 
-                print(f"[INFO Enteties  ] {[(ent.text, ent.label_, ent.kb_id_) for ent in doc.ents]}")
-                print("[INFO Categories] ", doc.cats)
+                print(f"[INFO Enteties] {[(ent.text, ent.label_) for ent in doc.ents]}")
+                print("[INFO]", doc.cats)
 
                 for token in doc:
-                    print("[INFO token   ] ", token.text, token.pos_, token.lemma_, token.ent_type_)
+                    print("[INFO token] ", token.text, token.pos_, token.lemma_, token.ent_type_)
                 
                 # завершення комунікації
-                for token in doc:
-                    if token.ent_type_ == 'GOODBYE':
+                for category in doc.cats:
+                    if category == 'ПРОЩАННЯ':
                         print("Звертайтеся ще.")
                         self.cach = []
                         return 0
 
-                intents = self.determinate_intent(doc)
+                intents = doc.cats
 
                 # згідно до наміру - щось робити
-                if not intents:
-                    print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
-                    result = self.cars.find({})
-                    count = self.cars.count_documents({})
-                    if count > 0:
-                        self.show_cars(result)
+                # if not intents:
+                #     print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
+                #     result = self.cars.find({})
+                #     count = self.cars.count_documents({})
+                #     if count > 0:
+                #         self.show_cars(result)
                 
                 for intent in intents:
                     if intent == 'make-order':
@@ -94,26 +95,10 @@ class Assistent:
                         self.do_manage(doc)
                     if intent == 'feedback':
                         self.analize_feedback(doc)
+            
             except ConnectionError as e:
                 print(f"Connection error: {e}")
                 return 0
-
-
-    # розпізнає намір клієнта / менеджера
-    def determinate_intent(self, doc):
-        intents = []
-
-        for token in doc:
-            if token.ent_type_ == 'ORDER':
-                intents.append("make-order") 
-            elif token.lemma_ in ['ціна', 'діапазон', "колір"] or token.ent_type_ in ['GREETING', 'BRAND', 'MODEL', 'CHARACTERISTIC', 'CAR']:
-                intents.append("specific-request") 
-            elif token.ent_type_ in ['F_OPT', 'F_ACT']:
-                intents.append("feedback") 
-            # elif token.ent_type_ == 'MANAGE' or token.lemma_ in remont or token.lemma_ in update_database_words:
-            #     intents.append("manager") 
-        
-        return list(set(intents))
 
 
     def greeting(self):
