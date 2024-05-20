@@ -12,8 +12,8 @@ import time
 load_dotenv()
 mongoDB_connection = os.getenv("MONGODB_CONNECTION")
 
-spacy_llm.logger.addHandler(logging.StreamHandler())
-spacy_llm.logger.setLevel(logging.DEBUG)
+# spacy_llm.logger.addHandler(logging.StreamHandler())
+# spacy_llm.logger.setLevel(logging.DEBUG)
 
 brand_translations = {
     'Фіат': 'Fiat',
@@ -52,16 +52,19 @@ class Assistent:
     def __init__(self):
         self.set_key_env_var()
         self.nlp = assemble(config_path=self.config_path, overrides=self.paths)
+        # textcat = self.nlp.add_pipe("llm_textcat")
+        # textcat.add_label("привітання")
         self.cars, self.managers, self.clients, self.feedback = self.connect_to_DB()
         self.questions_count = 0
         self.isManager = False
         self.order_query = {}
 
 
-    def identify_intent(self, doc):
+    def identify_intent(self, user_input):
         with self.nlp.select_pipes(enable="llm_textcat"):
+            doc = self.nlp(user_input)
             if not doc.cats:
-                return "unknown_intent"
+                return "нічого"
 
             key_with_highest_probability = max(doc.cats, key=doc.cats.get)
             selected_intent = key_with_highest_probability if doc.cats[key_with_highest_probability] > 0 else 0
@@ -78,42 +81,35 @@ class Assistent:
 
             try:
                 doc = self.nlp(user_input)
-                print("[INFO cats 1]", self.nlp.pipe_labels.get("textcat"))
-                print("[INFO cats 2]", doc.cats)
-                cats = self.identify_intent(doc)
-                print("[INFO cats 3]", cats)
-                
-                print(f"[INFO Enteties] {[(ent.text, ent.label_) for ent in doc.ents]}")
+                cats = self.identify_intent(user_input)
+                intent = cats
 
+                print("[INFO cats]", cats)
+                print(f"[INFO Enteties] {[(ent.text, ent.label_) for ent in doc.ents]}")
                 for token in doc:
                     print("[INFO token] ", token.text, token.lemma_, token.ent_type_)
                 
                 # завершення комунікації
-                for category in doc.cats:
-                    if category == 'ПРОЩАННЯ':
-                        print("Звертайтеся ще.")
-                        self.cach = []
-                        return 0
-
-                intents = doc.cats
+                if intent == 'прощання':
+                    print("Звертайтеся ще.")
+                    self.cach = []
+                    return 0
 
                 # згідно до наміру - щось робити
-                # if not intents:
-                #     print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
-                #     result = self.cars.find({})
-                #     count = self.cars.count_documents({})
-                #     if count > 0:
-                #         self.show_cars(result)
-                
-                for intent in intents:
-                    if intent == 'make-order':
-                        self.analize_order(doc)
-                    if intent == 'specific-request':
-                        self.analize_specific_request(doc)
-                    if intent == 'manager':
-                        self.do_manage(doc)
-                    if intent == 'feedback':
-                        self.analize_feedback(doc)
+                if intent == 'нічого':
+                    print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
+                    result = self.cars.find({})
+                    count = self.cars.count_documents({})
+                    if count > 0:
+                        self.show_cars(result)
+                elif intent == 'орендувати':
+                    self.analize_order(doc)
+                elif intent in ["привітання", "прощання", 'додаткова_інформація'] :
+                    self.analize_specific_request(doc)
+                elif intent in ["переглянути_машини", "оновити_базу_даних"]:
+                    self.do_manage(doc)
+                elif intent in ["переглянути_відгуки", "залишити_відгук"]:
+                    self.analize_feedback(doc)
             
             except ConnectionError as e:
                 print(f"Connection error: {e}")
