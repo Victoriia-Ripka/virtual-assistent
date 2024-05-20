@@ -1,4 +1,6 @@
 from spacy_llm.util import assemble # type: ignore
+import logging
+import spacy_llm # type: ignore
 import pymongo # type: ignore
 from prettytable import PrettyTable # type: ignore
 import os
@@ -9,6 +11,9 @@ import time
 
 load_dotenv()
 mongoDB_connection = os.getenv("MONGODB_CONNECTION")
+
+spacy_llm.logger.addHandler(logging.StreamHandler())
+spacy_llm.logger.setLevel(logging.DEBUG)
 
 brand_translations = {
     'Фіат': 'Fiat',
@@ -53,6 +58,17 @@ class Assistent:
         self.order_query = {}
 
 
+    def identify_intent(self, doc):
+        with self.nlp.select_pipes(enable="llm_textcat"):
+            if not doc.cats:
+                return "unknown_intent"
+
+            key_with_highest_probability = max(doc.cats, key=doc.cats.get)
+            selected_intent = key_with_highest_probability if doc.cats[key_with_highest_probability] > 0 else 0
+            if selected_intent:
+                return selected_intent
+            
+
     def assist(self):
         self.greeting()
 
@@ -62,12 +78,15 @@ class Assistent:
 
             try:
                 doc = self.nlp(user_input)
+                print("[INFO cats 1]", self.nlp.pipe_labels.get("textcat"))
+                print("[INFO cats 2]", doc.cats)
+                cats = self.identify_intent(doc)
+                print("[INFO cats 3]", cats)
                 
                 print(f"[INFO Enteties] {[(ent.text, ent.label_) for ent in doc.ents]}")
-                print("[INFO]", doc.cats)
 
                 for token in doc:
-                    print("[INFO token] ", token.text, token.pos_, token.lemma_, token.ent_type_)
+                    print("[INFO token] ", token.text, token.lemma_, token.ent_type_)
                 
                 # завершення комунікації
                 for category in doc.cats:
@@ -108,12 +127,6 @@ class Assistent:
     def set_key_env_var(self):
         api_key = os.getenv("OPENAI_API_KEY")
         os.environ['OPENAI_API_KEY'] = api_key
-
-    # не працює на разі
-    def ask_gpt(self, prompt):
-        # response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=50 )
-        # return response.choices[0].text.strip()
-        pass
 
 
     def connect_to_DB(self):
@@ -171,11 +184,10 @@ class Assistent:
             if are_you_manager.lower() == "так":
                 manager_name = input("Як вас звати?: ")
                 if self.is_manager(manager_name):
-                    for token in doc:
-                        if token.lemma_ in remont:
-                            return self.check_cars_for_repair()
-                        if token.lemma_ in update_database_words:
-                            return self.update_car()
+                    if "переглянути_машини" in doc.cats:
+                        return self.check_cars_for_repair()
+                    if "оновити_базу_даних" in doc.cats:
+                        return self.update_car()
 
                 else:
                     print("Хтось тут мухлює. Ви не є менеджером нашої фірми.")
@@ -183,11 +195,10 @@ class Assistent:
                 print("Вибачте, тільки менеджери мають доступ до даної інформації.")
         
         else: 
-            for token in doc:
-                if token.lemma_ in remont:
-                    return self.check_cars_for_repair()
-                if token.lemma_ in update_database_words:
-                    return self.update_car()
+            if "переглянути_машини" in doc.cats:
+                return self.check_cars_for_repair()
+            if "оновити_базу_даних" in doc.cats:
+                return self.update_car()
 
            
     def check_cars_for_repair(self):
@@ -223,12 +234,10 @@ class Assistent:
 
     # Feedback part
     def analize_feedback(self, doc):
-        for token in doc:
-            if token.ent_type_ == 'F_ACT':
+        if "переглянути_відгуки" in doc.cats:
                 self.review_feedback()
-                break
-            elif token.ent_type_ == 'F_OPT':
-                self.create_feedback()
+        elif "залишити_відгук" in doc.cats:
+            self.create_feedback()
     
 
     def create_feedback(self):
@@ -342,7 +351,7 @@ class Assistent:
         prices = None 
 
         for token in doc:
-            if self.analyze_greeting(token):
+            if self.analyze_greeting(doc):
                 greeting = True
 
             color = self.analyze_available_colors(token)
@@ -414,12 +423,12 @@ class Assistent:
                 print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
 
 
-    def analyze_greeting(self, token):
-        return token.ent_type_ == 'GREETING'
+    def analyze_greeting(self, doc):
+        return 'привітання' in doc.cats
 
 
     def analyze_available_colors(self, token):
-        if token.lemma_ == "колір":
+        if token.ent_type_ == "колір":
             colors = self.cars.distinct("color")
             return colors
         return False
