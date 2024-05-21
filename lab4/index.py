@@ -57,20 +57,7 @@ class Assistent:
         self.isManager = False
         self.order_query = {}
         self.intent = ''
-
-
-    def identify_intent(self, user_input):
-        with self.nlp.select_pipes(enable="llm_textcat"):
-            doc = self.nlp(user_input)
-            if not doc.cats:
-                return "нічого"
-
-            key_with_highest_probability = max(doc.cats, key=doc.cats.get)
-            selected_intent = key_with_highest_probability if doc.cats[key_with_highest_probability] > 0 else 0
-            if selected_intent:
-                self.intent = selected_intent
-                return selected_intent
-            
+      
 
     def assist(self):
         self.greeting()
@@ -84,10 +71,10 @@ class Assistent:
                 cats = self.identify_intent(user_input)
                 intent = cats
 
-                print("[INFO cat]", self.intent)
+                print("[INFO cats]", self.intent)
                 print(f"[INFO Enteties] {[(ent.text, ent.label_) for ent in doc.ents]}")
-                for token in doc:
-                    print("[INFO token] ", token.text, token.lemma_, token.ent_type_)
+                # for token in doc:
+                #     print("[INFO token] ", token.text, token.lemma_, token.ent_type_)
                 
                 # завершення комунікації
                 if intent == 'прощання':
@@ -134,7 +121,20 @@ class Assistent:
         feedback = db['feedback']
 
         return cars, managers, clients, feedback
-        
+    
+
+    def identify_intent(self, user_input):
+        with self.nlp.select_pipes(enable="llm_textcat"):
+            doc = self.nlp(user_input)
+            if not doc.cats:
+                return "нічого"
+
+            key_with_highest_probability = max(doc.cats, key=doc.cats.get)
+            selected_intent = key_with_highest_probability if doc.cats[key_with_highest_probability] > 0 else 0
+            if selected_intent:
+                self.intent = selected_intent
+                return selected_intent
+      
 
     # Manager part
     def is_manager(self, manager_name):
@@ -180,9 +180,9 @@ class Assistent:
             if are_you_manager.lower() == "так":
                 manager_name = input("Як вас звати?: ")
                 if self.is_manager(manager_name):
-                    if "переглянути_машини" in doc.cats:
+                    if self.intent == "переглянути_машини":
                         return self.check_cars_for_repair()
-                    if "оновити_базу_даних" in doc.cats:
+                    elif self.intent == "оновити_базу_даних":
                         return self.update_car()
 
                 else:
@@ -191,9 +191,9 @@ class Assistent:
                 print("Вибачте, тільки менеджери мають доступ до даної інформації.")
         
         else: 
-            if "переглянути_машини" in doc.cats:
+            if self.intent == "переглянути_машини":
                 return self.check_cars_for_repair()
-            if "оновити_базу_даних" in doc.cats:
+            elif self.intent == "оновити_базу_даних":
                 return self.update_car()
 
            
@@ -254,42 +254,45 @@ class Assistent:
         mongo_query = {}
         car_brands = []
 
-        for token in doc:
-            print(token.lemma_)
-            if token.ent_type_ == 'бренд':
-                brand = self.translate_brand(token.text)
-                car_brands.append(brand)
-            if token.ent_type == 'модель':
-                mongo_query['model'] = token
-            if token.ent_type == 'автомат':
-                mongo_query['automat'] = True
-            if token.ent_type == 'механіка':
-                mongo_query['automat'] = False
-            if token.ent_type == 'доступність':
-                mongo_query['available'] = True
-            if token.ent_type == 'колір':
-                mongo_query['color'] = token.lemma_
+        with self.nlp.select_pipes(enable=["lemmatizer", "llm_ner"]):
+            for ent in doc.ents:
+                if ent.label_ == 'бренд':
+                    brand = self.translate_brand(ent.text)
+                    car_brands.append(brand)
+                elif ent.label_ == 'модель':
+                    mongo_query['model'] = ent.text
+                elif ent.label_ == 'автомат':
+                    mongo_query['automat'] = True
+                elif ent.label_ == 'механіка':
+                    mongo_query['automat'] = False
+                elif ent.label_ == 'доступність':
+                    mongo_query['available'] = True
+                elif ent.label_ == 'колір':
+                    color_doc = self.nlp(ent.text)
+                    lemmatized_color = [token.lemma_ for token in color_doc]
+                    print(lemmatized_color)
+                    mongo_query['color'] = lemmatized_color[0] if lemmatized_color else ent.text
 
-        if car_brands:
-            mongo_query['brand'] = {"$in": car_brands}
+            if car_brands:
+                mongo_query['brand'] = {"$in": car_brands}
 
-        print(mongo_query)
-        result = self.cars.find(mongo_query)
-        count = self.cars.count_documents(mongo_query)
-        if count > 0:
-            print("Ми можемо запропонувати вам наступні варіанти:")
-            self.show_cars(result)
+            # print(mongo_query)
+            result = self.cars.find(mongo_query)
+            count = self.cars.count_documents(mongo_query)
+            if count > 0:
+                print("Ми можемо запропонувати вам наступні варіанти:")
+                self.show_cars(result)
 
-            answer = input("Чи ви оформлюєте замовлення? так/ні: ")
-            if answer.lower() == 'так':
-                self.order_query = mongo_query
-                self.make_order()
+                answer = input("Чи ви оформлюєте замовлення? так/ні: ")
+                if answer.lower() == 'так':
+                    self.order_query = mongo_query
+                    self.make_order()
+                else:
+                    print("Можете запитати про інші машини.")
+            elif  count == 0:
+                print("На разі ця машина у ремонті або її немає у наявності")
             else:
-                print("Можете запитати про інші машини.")
-        elif  count == 0:
-            print("На разі ця машина у ремонті або її немає у наявності")
-        else:
-            print("Вибачте, за вашим запитом ми не знайшли відповідних машин. Спробуйте змінити якісь параметри пошуку!")
+                print("Вибачте, за вашим запитом ми не знайшли відповідних машин. Спробуйте змінити якісь параметри пошуку!")
 
 
     def make_order(self):
