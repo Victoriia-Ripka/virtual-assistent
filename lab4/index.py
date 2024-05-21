@@ -52,12 +52,11 @@ class Assistent:
     def __init__(self):
         self.set_key_env_var()
         self.nlp = assemble(config_path=self.config_path, overrides=self.paths)
-        # textcat = self.nlp.add_pipe("llm_textcat")
-        # textcat.add_label("привітання")
         self.cars, self.managers, self.clients, self.feedback = self.connect_to_DB()
         self.questions_count = 0
         self.isManager = False
         self.order_query = {}
+        self.intent = ''
 
 
     def identify_intent(self, user_input):
@@ -69,6 +68,7 @@ class Assistent:
             key_with_highest_probability = max(doc.cats, key=doc.cats.get)
             selected_intent = key_with_highest_probability if doc.cats[key_with_highest_probability] > 0 else 0
             if selected_intent:
+                self.intent = selected_intent
                 return selected_intent
             
 
@@ -84,7 +84,7 @@ class Assistent:
                 cats = self.identify_intent(user_input)
                 intent = cats
 
-                print("[INFO cats]", cats)
+                print("[INFO cat]", self.intent)
                 print(f"[INFO Enteties] {[(ent.text, ent.label_) for ent in doc.ents]}")
                 for token in doc:
                     print("[INFO token] ", token.text, token.lemma_, token.ent_type_)
@@ -96,20 +96,20 @@ class Assistent:
                     return 0
 
                 # згідно до наміру - щось робити
-                if intent == 'нічого':
+                elif intent == 'орендувати':
+                    self.analize_order(doc)
+                elif intent in ["привітання", 'додаткова_інформація'] :
+                    self.analize_specific_request(doc)
+                elif intent in ["переглянути_машини", "оновити_базу_даних"]:
+                    self.do_manage(doc)
+                elif intent in ["переглянути_відгуки", "залишити_відгук"]:
+                    self.analize_feedback()
+                elif intent == 'нічого':
                     print("Я можу вам допомогти орендувати машину для власних потреб. \nОсь що ми маємо:")
                     result = self.cars.find({})
                     count = self.cars.count_documents({})
                     if count > 0:
                         self.show_cars(result)
-                elif intent == 'орендувати':
-                    self.analize_order(doc)
-                elif intent in ["привітання", "прощання", 'додаткова_інформація'] :
-                    self.analize_specific_request(doc)
-                elif intent in ["переглянути_машини", "оновити_базу_даних"]:
-                    self.do_manage(doc)
-                elif intent in ["переглянути_відгуки", "залишити_відгук"]:
-                    self.analize_feedback(doc)
             
             except ConnectionError as e:
                 print(f"Connection error: {e}")
@@ -229,10 +229,10 @@ class Assistent:
 
 
     # Feedback part
-    def analize_feedback(self, doc):
-        if "переглянути_відгуки" in doc.cats:
+    def analize_feedback(self):
+        if self.intent == "переглянути_відгуки":
                 self.review_feedback()
-        elif "залишити_відгук" in doc.cats:
+        elif self.intent == "залишити_відгук":
             self.create_feedback()
     
 
@@ -255,27 +255,25 @@ class Assistent:
         car_brands = []
 
         for token in doc:
-            # print("[INFO] ", token.text, token.pos_, token.lemma_, token.ent_type_)
-            if token.ent_type_ == 'BRAND':
+            print(token.lemma_)
+            if token.ent_type_ == 'бренд':
                 brand = self.translate_brand(token.text)
                 car_brands.append(brand)
-            if token.ent_type == 'MODEL':
+            if token.ent_type == 'модель':
                 mongo_query['model'] = token
-            if token.ent_type ==  'CHARACTERISTIC':
-                if token.lemma_ in ['автомат', 'автоматичний']:
-                    mongo_query['automat'] = True
-                elif token.lemma_ in ['механіка', 'механічний']:
-                    mongo_query['automat'] = False
-                elif token.lemma_ in ['наявний', 'доступний', 'наявність', 'доступність'] :
-                    mongo_query['available'] = True
-                elif token.lemma_ in ['зайнятий']:
-                    mongo_query['available'] = False
-            if token.pos_ == 'ADJ':
+            if token.ent_type == 'автомат':
+                mongo_query['automat'] = True
+            if token.ent_type == 'механіка':
+                mongo_query['automat'] = False
+            if token.ent_type == 'доступність':
+                mongo_query['available'] = True
+            if token.ent_type == 'колір':
                 mongo_query['color'] = token.lemma_
 
         if car_brands:
             mongo_query['brand'] = {"$in": car_brands}
 
+        print(mongo_query)
         result = self.cars.find(mongo_query)
         count = self.cars.count_documents(mongo_query)
         if count > 0:
@@ -347,7 +345,7 @@ class Assistent:
         prices = None 
 
         for token in doc:
-            if self.analyze_greeting(doc):
+            if self.analyze_greeting():
                 greeting = True
 
             color = self.analyze_available_colors(token)
@@ -370,7 +368,7 @@ class Assistent:
             if automatic:
                 automatic_cars.extend(automatic)
 
-            price = self.get_prices(token)
+            price = self.get_prices(doc, token)
             if price:
                 prices = price
 
@@ -419,12 +417,12 @@ class Assistent:
                 print("Я не зрозумів вашого повідомлення. Я можу допомогти вам обрати машину для оренди.")
 
 
-    def analyze_greeting(self, doc):
-        return 'привітання' in doc.cats
+    def analyze_greeting(self):
+        return 'привітання' in self.intent
 
 
     def analyze_available_colors(self, token):
-        if token.ent_type_ == "колір":
+        if token.lemma_ == "колір":
             colors = self.cars.distinct("color")
             return colors
         return False
@@ -465,14 +463,14 @@ class Assistent:
         return False
 
 
-    def get_prices(self, token): 
+    def get_prices(self, doc, token): 
         
-        if token.lemma_ in ['ціна', 'діапазон']:
+        if token.lemma_ in ['ціна', 'ціни', 'діапазон', 'ціньова']:
             prices = []
             for car in self.cars.find({}, {"_id": 0, "cost": 1}):
                 prices.append(car['cost']['hour'])
 
-            for token in self.nlp(self.cach[-1]):
+            for token in doc:
                 if token.lemma_ in ['мінімальний', 'найнижча', 'нийдешевша', "найнижчий"]:
                     return self.get_minimum_price(prices)
                 elif token.lemma_ in ['максимальний', 'найвижча', 'найдорожча']:
